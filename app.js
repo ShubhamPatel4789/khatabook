@@ -3,8 +3,8 @@
    Data: one shared Firestore document in the billsplit-a7148 project
    (collection 'khatabook', doc 'kb_main'), synced live like Billsplit.
    Local storage is only an offline cache. UI gate: Google sign-in.
-   NOTE: the project's Firestore rules are open, so sign-in is a UI gate
-   only — it does not by itself restrict who can read/write the document. */
+   NOTE: the project's Firestore rules allow the khatabook document only
+   to signed-in users, so Google sign-in is a real gate, not just a screen. */
 
 const $ = id => document.getElementById(id);
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -45,7 +45,8 @@ const STR = {
     settled: 'Settled up',
     noCustomers: 'No customers yet',
     noCustomersHint: 'Tap “Add customer” to start your first khata.',
-    name: 'Name', phone: 'Phone (optional)', amount: 'Amount', date: 'Date',
+    name: 'Name', phone: 'Phone (optional)', email: 'Email (optional)', kbUser: 'KhataBook user',
+    amount: 'Amount', date: 'Date',
     note: 'Note (optional)',
     addEntry: 'Add entry', editEntry: 'Edit entry', deleteEntry: 'Delete entry',
     save: 'Save', cancel: 'Cancel', delete: 'Delete', edit: 'Edit',
@@ -96,7 +97,8 @@ const STR = {
     settled: 'ચૂકતે',
     noCustomers: 'હજુ કોઈ ગ્રાહક નથી',
     noCustomersHint: 'પહેલું ખાતું શરૂ કરવા “ગ્રાહક ઉમેરો” દબાવો.',
-    name: 'નામ', phone: 'ફોન (વૈકલ્પિક)', amount: 'રકમ', date: 'તારીખ',
+    name: 'નામ', phone: 'ફોન (વૈકલ્પિક)', email: 'ઇમેઇલ (વૈકલ્પિક)', kbUser: 'ખાતાબુક યુઝર',
+    amount: 'રકમ', date: 'તારીખ',
     note: 'નોંધ (વૈકલ્પિક)',
     addEntry: 'નોંધ ઉમેરો', editEntry: 'નોંધમાં ફેરફાર કરો', deleteEntry: 'નોંધ કાઢી નાખો',
     save: 'સાચવો', cancel: 'રદ કરો', delete: 'કાઢી નાખો', edit: 'ફેરફાર કરો',
@@ -377,7 +379,7 @@ function renderDashboard() {
 function renderCustomers() {
   const q = ($('searchInput').value || '').trim().toLowerCase();
   let list = [...state.customers];
-  if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q));
+  if (q) list = list.filter(c => c.name.toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q));
   if (duesOnly) list = list.filter(c => Math.abs(balanceOf(c.id)) > 0.004);
   if (sortKey === 'name') list.sort((a, b) => a.name.localeCompare(b.name));
   else if (sortKey === 'balance') list.sort((a, b) => balanceOf(b.id) - balanceOf(a.id) || a.name.localeCompare(b.name));
@@ -388,7 +390,7 @@ function renderCustomers() {
     const initial = (c.name.trim()[0] || '?').toUpperCase();
     return `<button type="button" class="cust-row" data-open="${c.id}">
       <span class="cust-avatar">${esc(initial)}</span>
-      <span class="cust-main"><span class="cust-name">${esc(c.name)}</span>${c.phone ? `<span class="cust-phone">${esc(c.phone)}</span>` : ''}</span>
+      <span class="cust-main"><span class="cust-name">${esc(c.name)}</span>${c.kbUser ? `<span class="kb-badge">${t('kbUser')}</span>` : ''}${c.phone ? `<span class="cust-phone">${esc(c.phone)}</span>` : ''}${c.email ? `<span class="cust-phone">${esc(c.email)}</span>` : ''}</span>
       <span class="cust-bal ${balClass(b)}">${fmt(b)}<small>${balLabel(b)}</small></span>
     </button>`;
   }).join('');
@@ -411,6 +413,8 @@ function renderDetail() {
   const b = balanceOf(c.id);
   $('detailName').textContent = c.name;
   $('detailPhone').textContent = c.phone || '';
+  $('detailEmail').textContent = c.email || '';
+  $('detailKbBadge').classList.toggle('hidden', !c.kbUser);
   $('detailBalanceLabel').textContent = balLabel(b);
   const bv = $('detailBalanceValue');
   bv.textContent = fmt(b);
@@ -451,6 +455,8 @@ function openCustomerModal(customer) {
   applyTranslations();
   $('custName').value = customer ? customer.name : '';
   $('custPhone').value = customer ? (customer.phone || '') : '';
+  $('custEmail').value = customer ? (customer.email || '') : '';
+  $('custKbUser').checked = !!(customer && customer.kbUser);
   openModal('customerModal');
   setTimeout(() => $('custName').focus(), 100);
 }
@@ -459,12 +465,14 @@ $('customerForm').addEventListener('submit', ev => {
   const name = $('custName').value.trim();
   if (!name) { toast(t('enterName')); return; }
   const phone = $('custPhone').value.trim();
+  const email = $('custEmail').value.trim();
+  const kbUser = $('custKbUser').checked;
   if (editingCustomerId) {
     const c = state.customers.find(x => x.id === editingCustomerId);
-    if (c) { c.name = name; c.phone = phone; }
+    if (c) { c.name = name; c.phone = phone; c.email = email; c.kbUser = kbUser; }
     toast(t('customerUpdated'));
   } else {
-    state.customers.push({ id: uid(), name, phone });
+    state.customers.push({ id: uid(), name, phone, email, kbUser });
     toast(t('customerAdded'));
   }
   save(); closeModals(); render();
@@ -527,9 +535,9 @@ function buildStatement(c) {
   const rowsText = rows.map(({ e, running: rb }) =>
     `${displayDate(e.date)} | ${e.type === 'gave' ? t('gave') : t('got')} | ${fmt(e.amount)} | ${t('runningBalance')}: ${fmt(rb)}${e.note ? ' | ' + e.note : ''}`
   ).join('\n');
-  statementText = `${t('statement')} — ${t('statementFor')} ${c.name}${c.phone ? ' (' + c.phone + ')' : ''}\n${t('generatedOn')} ${displayDate(localToday())}\n\n${rowsText}\n\n${t('total')}: ${fmt(b)} (${balLabel(b)})`;
+  statementText = `${t('statement')} — ${t('statementFor')} ${c.name}${c.phone ? ' (' + c.phone + ')' : ''}${c.email ? ' · ' + c.email : ''}\n${t('generatedOn')} ${displayDate(localToday())}\n\n${rowsText}\n\n${t('total')}: ${fmt(b)} (${balLabel(b)})`;
   $('statementContent').innerHTML =
-    `<div class="stmt-head"><h3>${t('statement')}</h3><div class="stmt-meta">${t('statementFor')} <b>${esc(c.name)}</b>${c.phone ? ' · ' + esc(c.phone) : ''}<br>${t('generatedOn')} ${displayDate(localToday())}</div></div>` +
+    `<div class="stmt-head"><h3>${t('statement')}</h3><div class="stmt-meta">${t('statementFor')} <b>${esc(c.name)}</b>${c.phone ? ' · ' + esc(c.phone) : ''}${c.email ? ' · ' + esc(c.email) : ''}<br>${t('generatedOn')} ${displayDate(localToday())}</div></div>` +
     rowsHtml +
     `<div class="stmt-total"><span>${balLabel(b)}</span><span class="${balClass(b)}">${fmt(b)}</span></div>`;
 }

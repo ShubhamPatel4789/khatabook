@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
 <header class="topbar">
@@ -105,6 +105,8 @@
         <div>
           <h2 id="detailName"></h2>
           <div id="detailPhone" class="detail-phone"></div>
+          <div id="detailEmail" class="detail-phone"></div>
+          <span id="detailKbBadge" class="kb-badge hidden" data-i18n="kbUser">KhataBook user</span>
         </div>
         <div class="detail-balance">
           <div class="detail-balance-label" id="detailBalanceLabel"></div>
@@ -161,6 +163,10 @@
       <label><span data-i18n="phone">Phone (optional)</span>
         <input type="tel" id="custPhone" autocomplete="off">
       </label>
+      <label><span data-i18n="email">Email (optional)</span>
+        <input type="email" id="custEmail" autocomplete="off">
+      </label>
+      <label class="check-row"><input type="checkbox" id="custKbUser"> <span data-i18n="kbUser">KhataBook user</span></label>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
@@ -226,6 +232,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=1"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
