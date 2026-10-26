@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=2">
+<link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 <header class="topbar">
@@ -90,6 +90,7 @@
         </label>
         <label class="dues-label"><input type="checkbox" id="duesOnly"> <span data-i18n="duesOnly">Dues only</span></label>
         <button type="button" id="addCustomerBtn" class="btn btn-primary" data-i18n="addCustomer">Add customer</button>
+        <button type="button" id="reportsBtn" class="btn" data-i18n="reports">Reports</button>
       </div>
       <div id="customerList" class="customer-list"></div>
       <div id="customerEmpty" class="empty hidden">
@@ -138,6 +139,36 @@
         <div data-i18n="addFirstEntry">Add the first entry for this customer.</div>
       </div>
       <div id="entryNoMatch" class="empty hidden" data-i18n="noEntriesMatch">No entries match these filters.</div>
+    </section>
+
+    <!-- Overall reports view -->
+    <section id="reportView" class="hidden">
+      <button type="button" id="reportBackBtn" class="btn btn-ghost">← <span data-i18n="back">Back</span></button>
+      <div class="entry-filters">
+        <label><span data-i18n="month">Month</span>
+          <select id="reportMonth"></select>
+        </label>
+      </div>
+      <div id="reportContent">
+        <div class="stmt-head"><h3 data-i18n="report">Report</h3><div class="stmt-meta" id="reportMeta"></div></div>
+        <section class="dashboard">
+          <div class="dash-card"><div class="dash-label" data-i18n="totalGave">Total given</div><div class="dash-value" id="reportGave">₹0.00</div></div>
+          <div class="dash-card"><div class="dash-label" data-i18n="totalGot">Total received</div><div class="dash-value" id="reportGot">₹0.00</div></div>
+          <div class="dash-card"><div class="dash-label" data-i18n="netBalance">Net balance</div><div class="dash-value" id="reportNet">₹0.00</div></div>
+          <div class="dash-card"><div class="dash-label" data-i18n="entries">Entries</div><div class="dash-value" id="reportCount">0</div></div>
+        </section>
+        <div id="reportMonthSection">
+          <h3 data-i18n="monthly">Monthly breakdown</h3>
+          <div id="reportMonthList" class="entry-list"></div>
+        </div>
+        <h3 data-i18n="customers">Customers</h3>
+        <div id="reportCustomerList" class="entry-list"></div>
+        <div id="reportEmpty" class="empty hidden" data-i18n="noPeriodEntries">No entries in this period.</div>
+      </div>
+      <div class="detail-actions">
+        <button type="button" id="copyReportBtn" class="btn" data-i18n="copyReport">Copy report</button>
+        <button type="button" id="printReportBtn" class="btn btn-primary" data-i18n="print">Print</button>
+      </div>
     </section>
 
     <!-- Backup -->
@@ -232,6 +263,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
