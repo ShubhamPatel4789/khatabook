@@ -1,10 +1,12 @@
 'use strict';
 /* Khatabook — bilingual (English / ગુજરાતી) customer ledger.
-   Data: one shared Firestore document in the billsplit-a7148 project
-   (collection 'khatabook', doc 'kb_main'), synced live like Billsplit.
-   Local storage is only an offline cache. UI gate: Google sign-in.
-   NOTE: the project's Firestore rules allow the khatabook document only
-   to signed-in users, so Google sign-in is a real gate, not just a screen. */
+   Data: one private Firestore document per Google account in the
+   billsplit-a7148 project (collection 'khatabook', doc id = auth UID),
+   synced live like Billsplit. The old shared kb_main doc is imported
+   once on a user's first sign-in, then left untouched.
+   NOTE: the project's Firestore rules must lock each khatabook document
+   to its owner (request.auth.uid == doc) for the privacy to be real;
+   the app alone cannot enforce it. */
 
 const $ = id => document.getElementById(id);
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -30,10 +32,10 @@ const STR = {
     signInDesc: 'Sign in with Google to see your ledger on all your devices.',
     signInGoogle: 'Sign in with Google', signingIn: 'Signing in…',
     signOut: 'Sign out',
-    syncOn: '☁️ Cloud sync ON — every device with this app sees the same data, live.',
+    syncOn: '☁️ Cloud sync ON — your book syncs live across your devices.',
     syncOff: '☁️ Cloud sync could not connect — data still saves on this device.',
     syncUnavailable: '☁️ Cloud sync unavailable — data is stored on this device only.',
-    authNote: 'Note: this is one shared ledger — anyone who opens this app sees the same book.',
+    authNote: 'Note: each Google account gets its own private book — no one else sees your entries.',
     totalToReceive: 'Total to receive', totalToPay: 'Total to pay',
     netBalance: 'Net balance', customers: 'Customers', customer: 'Customer',
     addCustomer: 'Add customer', editCustomer: 'Edit customer', deleteCustomer: 'Delete customer',
@@ -68,6 +70,7 @@ const STR = {
     customerAdded: 'Customer added ✓', customerUpdated: 'Customer updated ✓',
     customerDeleted: 'Customer deleted',
     entryAdded: 'Entry added ✓', entryUpdated: 'Entry updated ✓', entryDeleted: 'Entry deleted',
+    oldBookMoved: 'Old book moved to your private book ✓',
     enterName: 'Enter a name', enterAmount: 'Enter an amount',
     addCustomerFirst: 'Add a customer first',
     imported: 'Backup imported ✓', importFailed: 'That file could not be imported',
@@ -86,10 +89,10 @@ const STR = {
     signInDesc: 'બધા ડિવાઇસ પર તમારો હિસાબ જોવા માટે Google થી સાઇન ઇન કરો.',
     signInGoogle: 'Google થી સાઇન ઇન કરો', signingIn: 'સાઇન ઇન થઈ રહ્યું છે…',
     signOut: 'સાઇન આઉટ',
-    syncOn: '☁️ ક્લાઉડ સિંક ચાલુ છે — આ એપ ધરાવતા બધા ડિવાઇસમાં એક જ ડેટા લાઇવ દેખાશે.',
+    syncOn: '☁️ ક્લાઉડ સિંક ચાલુ છે — તમારું ખાતું તમારા બધા ડિવાઇસમાં લાઇવ સિંક થાય છે.',
     syncOff: '☁️ ક્લાઉડ સિંક કનેક્ટ થઈ શક્યું નથી — ડેટા આ ડિવાઇસમાં સાચવાશે.',
     syncUnavailable: '☁️ ક્લાઉડ સિંક ઉપલબ્ધ નથી — ડેટા ફક્ત આ ડિવાઇસમાં જ સ્ટોર થશે.',
-    authNote: 'નોંધ: આ એક સહિયારું ખાતું છે — આ એપ ખોલનાર કોઈપણ વ્યક્તિ આ જ ખાતું જોશે.',
+    authNote: 'નોંધ: દરેક Google એકાઉન્ટને પોતાનું ખાનગી ખાતું મળે છે — તમારી નોંધો બીજું કોઈ જોઈ શકતું નથી.',
     totalToReceive: 'કુલ લેવાના', totalToPay: 'કુલ આપવાના',
     netBalance: 'ચોખ્ખી બાકી', customers: 'ગ્રાહકો', customer: 'ગ્રાહક',
     addCustomer: 'ગ્રાહક ઉમેરો', editCustomer: 'ગ્રાહકમાં ફેરફાર કરો', deleteCustomer: 'ગ્રાહક કાઢી નાખો',
@@ -124,6 +127,7 @@ const STR = {
     customerAdded: 'ગ્રાહક ઉમેરાયો ✓', customerUpdated: 'ગ્રાહક અપડેટ થયો ✓',
     customerDeleted: 'ગ્રાહક કાઢી નાખ્યો',
     entryAdded: 'નોંધ ઉમેરાઈ ✓', entryUpdated: 'નોંધ અપડેટ થઈ ✓', entryDeleted: 'નોંધ કાઢી નાખી',
+    oldBookMoved: 'જૂનું ખાતું તમારા ખાનગી ખાતામાં ખસેડાયું ✓',
     enterName: 'નામ લખો', enterAmount: 'રકમ લખો',
     addCustomerFirst: 'પહેલા ગ્રાહક ઉમેરો',
     imported: 'બેકઅપ ઇમ્પોર્ટ થયો ✓', importFailed: 'તે ફાઇલ ઇમ્પોર્ટ થઈ શકી નથી',
@@ -177,17 +181,21 @@ if (themeMQ.addEventListener) themeMQ.addEventListener('change', applyTheme);
 
 /* ---------- state ---------- */
 const LS_KEY = 'khatabook.v1';
+let currentUser = null; // set by auth; the cache key is per user so books never mix on one device
+const cacheKey = () => currentUser ? LS_KEY + '.' + currentUser.uid : LS_KEY;
 let state = { currency: 'INR', customers: [], entries: [] };
-try {
-  const raw = localStorage.getItem(LS_KEY);
-  if (raw) {
-    const p = JSON.parse(raw);
-    if (p && Array.isArray(p.customers) && Array.isArray(p.entries)) {
-      state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries };
+function loadLocalCache() {
+  try {
+    const raw = localStorage.getItem(cacheKey());
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (p && Array.isArray(p.customers) && Array.isArray(p.entries)) {
+        state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries };
+      }
     }
-  }
-} catch (e) {}
-function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} schedulePush(); }
+  } catch (e) {}
+}
+function save() { try { localStorage.setItem(cacheKey(), JSON.stringify(state)); } catch (e) {} schedulePush(); }
 
 /* ---------- Firebase config (same project as Billsplit; separate document) ---------- */
 const FIREBASE_CONFIG = {
@@ -198,10 +206,12 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "356199360313",
   appId: "1:356199360313:web:880d18351664af49a3eae8"
 };
-/* Khatabook document — never the Billsplit households document. */
+/* Khatabook documents — one per user (doc id = auth UID), never the
+   Billsplit households document. kb_main is only the legacy shared book,
+   read once for migration on a user's first sign-in. */
 const KB_COLLECTION = 'khatabook';
-const KB_DOC = 'kb_main';
-let kbRef = null, lastPushed = '', pushTimer = null, syncStarted = false, pendingPush = false, syncInitDone = false;
+const KB_LEGACY_DOC = 'kb_main';
+let kbRef = null, kbUnsub = null, lastPushed = '', pushTimer = null, syncStarted = false, pendingPush = false;
 function schedulePush() {
   if (!kbRef) return;
   clearTimeout(pushTimer);
@@ -223,22 +233,37 @@ function adoptRemote(remote) {
     const p = JSON.parse(remote);
     if (!validKb(p)) return;
     state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries };
-    try { localStorage.setItem(LS_KEY, remote); } catch (e) {}
+    try { localStorage.setItem(cacheKey(), remote); } catch (e) {}
     render();
   } catch (e) { console.warn('Could not apply cloud data', e); }
 }
-function initSync() {
-  if (syncInitDone) return;
-  syncInitDone = true;
+function initSync(uid) {
   const el = $('syncStatus');
   if (!window.firebase) { if (el) el.textContent = t('syncUnavailable'); return; }
   try {
-    kbRef = firebase.firestore().collection(KB_COLLECTION).doc(KB_DOC);
-    kbRef.onSnapshot(snap => {
+    if (kbUnsub) { kbUnsub(); kbUnsub = null; }
+    syncStarted = false; pendingPush = false; lastPushed = '';
+    kbRef = firebase.firestore().collection(KB_COLLECTION).doc(uid);
+    kbUnsub = kbRef.onSnapshot(async snap => {
       const wasFirst = !syncStarted;
       syncStarted = true;
       if (el) el.textContent = t('syncOn');
-      if (!snap.exists) { pushNow(); return; }
+      if (!snap.exists) {
+        // First sign-in for this user: one-time import from the old shared book.
+        try {
+          const legacy = await firebase.firestore().collection(KB_COLLECTION).doc(KB_LEGACY_DOC).get();
+          if (legacy.exists && legacy.data().state) {
+            const p = JSON.parse(legacy.data().state);
+            if (validKb(p) && (p.customers.length || p.entries.length)) {
+              adoptRemote(legacy.data().state);
+              pushNow();
+              toast(t('oldBookMoved'));
+              return;
+            }
+          }
+        } catch (e) { console.warn('Legacy import failed', e); }
+        pushNow(); return;
+      }
       const remote = snap.data().state;
       if (!remote || remote === lastPushed) { if (pendingPush) { pendingPush = false; pushNow(); } return; }
       if (wasFirst) {
@@ -262,7 +287,7 @@ function initSync() {
 }
 
 /* ---------- auth: Google sign-in gate ---------- */
-let auth = null, currentUser = null;
+let auth = null;
 function showAuthError(e) {
   const box = $('authError');
   let key = 'authErrorGeneric';
@@ -305,14 +330,18 @@ function initAuth() {
   auth.onAuthStateChanged(user => {
     currentUser = user;
     if (user) {
+      loadLocalCache();
       $('authView').classList.add('hidden');
       $('appView').classList.remove('hidden');
       $('userChip').textContent = user.displayName || user.email || '';
       $('userChip').classList.remove('hidden');
       $('signOutBtn').classList.remove('hidden');
-      initSync();
+      initSync(user.uid);
       render();
     } else {
+      if (kbUnsub) { kbUnsub(); kbUnsub = null; }
+      kbRef = null; syncStarted = false; pendingPush = false;
+      state = { currency: 'INR', customers: [], entries: [] };
       $('authView').classList.remove('hidden');
       $('appView').classList.add('hidden');
       $('userChip').classList.add('hidden');
