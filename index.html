@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <header class="topbar">
@@ -90,6 +90,7 @@
         </label>
         <label class="dues-label"><input type="checkbox" id="duesOnly"> <span data-i18n="duesOnly">Dues only</span></label>
         <button type="button" id="addCustomerBtn" class="btn btn-primary" data-i18n="addCustomer">Add customer</button>
+        <button type="button" id="quickAddEntryBtn" class="btn btn-primary" data-i18n="addEntry">Add entry</button>
         <button type="button" id="reportsBtn" class="btn" data-i18n="reports">Reports</button>
       </div>
       <div id="customerList" class="customer-list"></div>
@@ -233,6 +234,35 @@
   </div>
 </div>
 
+<!-- Quick-add entry modal (main screen) -->
+<div id="quickAddModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 data-i18n="addEntry">Add entry</h3>
+    <form id="quickAddForm">
+      <label><span data-i18n="customer">Customer</span>
+        <select id="quickCustomer"></select>
+      </label>
+      <div class="seg" role="group">
+        <button type="button" class="seg-btn qtype-btn" data-qtype="gave" data-i18n="gave">You gave</button>
+        <button type="button" class="seg-btn qtype-btn" data-qtype="got" data-i18n="got">You got</button>
+      </div>
+      <label><span data-i18n="amount">Amount</span>
+        <input type="number" id="quickAmount" min="0.01" step="0.01" inputmode="decimal" required>
+      </label>
+      <label><span data-i18n="date">Date</span>
+        <input type="date" id="quickDate" required>
+      </label>
+      <label><span data-i18n="note">Note (optional)</span>
+        <input type="text" id="quickNote" autocomplete="off">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Statement sheet (printable) -->
 <div id="statementSheet" class="modal-backdrop hidden">
   <div class="modal statement-modal" role="dialog" aria-modal="true">
@@ -263,6 +293,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
