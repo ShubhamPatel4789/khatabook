@@ -74,6 +74,7 @@ const STR = {
     enterName: 'Enter a name', enterAmount: 'Enter an amount',
     addCustomerFirst: 'Add a customer first',
     investments: 'Investments', addInvestment: 'Add investment',
+    ledger: 'Ledger',
     editInvestment: 'Edit investment', deleteInvestment: 'Delete investment',
     principal: 'Principal amount', annualRate: 'Annual interest rate (%)',
     startDate: 'Start date', maturityDate: 'Maturity date',
@@ -144,6 +145,7 @@ const STR = {
     enterName: 'નામ લખો', enterAmount: 'રકમ લખો',
     addCustomerFirst: 'પહેલા ગ્રાહક ઉમેરો',
     investments: 'રોકાણો', addInvestment: 'રોકાણ ઉમેરો',
+    ledger: 'ખાતાવહી',
     editInvestment: 'રોકાણમાં ફેરફાર કરો', deleteInvestment: 'રોકાણ કાઢી નાખો',
     principal: 'મૂળ રકમ', annualRate: 'વાર્ષિક વ્યાજ દર (%)',
     startDate: 'શરૂઆતની તારીખ', maturityDate: 'પાકવાની તારીખ',
@@ -362,6 +364,7 @@ function initAuth() {
       $('userChip').textContent = user.displayName || user.email || '';
       $('userChip').classList.remove('hidden');
       $('signOutBtn').classList.remove('hidden');
+      $('tabBar').classList.remove('hidden');
       initSync(user.uid);
       render();
     } else {
@@ -372,6 +375,7 @@ function initAuth() {
       $('appView').classList.add('hidden');
       $('userChip').classList.add('hidden');
       $('signOutBtn').classList.add('hidden');
+      $('tabBar').classList.add('hidden');
     }
   });
 }
@@ -425,16 +429,23 @@ function toast(msg) {
 }
 let selectedId = null, sortKey = 'name', duesOnly = false;
 let entryTypeFilter = 'all', dateFrom = '', dateTo = '';
-let reportMonth = 'all', reportsOpen = false, investmentsOpen = false;
+let reportMonth = 'all', activeTab = 'ledger';
 
 function render() {
   document.querySelectorAll('.curr-btn').forEach(b => b.classList.toggle('active', b.dataset.currency === state.currency));
   renderMaturingAlert();
-  if (reportsOpen) { renderReports(); return; }
-  if (investmentsOpen) { renderInvestments(); return; }
+  updateTabBar();
+  $('reportView').classList.toggle('hidden', activeTab !== 'reports');
+  $('investView').classList.toggle('hidden', activeTab !== 'investments');
+  const ledger = activeTab === 'ledger';
+  $('dashboardSection').classList.toggle('hidden', !ledger);
+  $('backupSection').classList.toggle('hidden', !ledger);
+  if (activeTab === 'reports') { renderReports(); return; }
+  if (activeTab === 'investments') { renderInvestments(); return; }
   renderDashboard();
   renderCustomers();
-  if (selectedId) renderDetail(); else { $('listView').classList.remove('hidden'); $('detailView').classList.add('hidden'); }
+  if (selectedId) { $('listView').classList.add('hidden'); $('detailView').classList.remove('hidden'); renderDetail(); }
+  else { $('listView').classList.remove('hidden'); $('detailView').classList.add('hidden'); }
 }
 function renderDashboard() {
   const tot = totals();
@@ -464,37 +475,21 @@ function renderCustomers() {
 }
 function showList() {
   selectedId = null;
-  reportsOpen = false;
-  investmentsOpen = false;
-  $('listView').classList.remove('hidden');
-  $('detailView').classList.add('hidden');
-  $('reportView').classList.add('hidden');
-  $('investView').classList.add('hidden');
-  renderCustomers();
+  activeTab = 'ledger';
+  render();
 }
 function showReports() {
-  reportsOpen = true;
-  investmentsOpen = false;
-  $('listView').classList.add('hidden');
-  $('detailView').classList.add('hidden');
-  $('investView').classList.add('hidden');
-  $('reportView').classList.remove('hidden');
-  renderReports();
+  activeTab = 'reports';
+  render();
 }
 function showInvestments() {
-  investmentsOpen = true;
-  reportsOpen = false;
-  $('listView').classList.add('hidden');
-  $('detailView').classList.add('hidden');
-  $('reportView').classList.add('hidden');
-  $('investView').classList.remove('hidden');
-  renderInvestments();
+  activeTab = 'investments';
+  render();
 }
 function showDetail(id) {
   selectedId = id;
-  $('listView').classList.add('hidden');
-  $('detailView').classList.remove('hidden');
-  renderDetail();
+  activeTab = 'ledger';
+  render();
 }
 function renderDetail() {
   const c = state.customers.find(x => x.id === selectedId);
@@ -636,11 +631,21 @@ function renderMaturingAlert() {
   const text = soon.length
     ? '⚠️ ' + soon.length + ' ' + t('maturingSoon') + ': ' + soon.map(inv => esc(inv.name) + ' (' + invStatus(inv).left + ' ' + t('daysLeft') + ')').join(', ')
     : '';
-  [$('maturingAlert'), $('investAlert')].forEach(el => {
-    if (!el) return;
-    el.innerHTML = text;
-    el.classList.toggle('hidden', !soon.length);
+  $('maturingAlert').innerHTML = text;
+  $('investAlert').innerHTML = text;
+  $('maturingAlert').classList.toggle('hidden', !(activeTab === 'ledger' && soon.length));
+  $('investAlert').classList.toggle('hidden', !(activeTab === 'investments' && soon.length));
+}
+function updateTabBar() {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const on = b.dataset.tab === activeTab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
   });
+  const badge = $('investTabBadge');
+  const n = maturingSoon().length;
+  badge.textContent = n ? String(n) : '';
+  badge.classList.toggle('hidden', !n);
 }
 function renderInvestments() {
   const list = [...(state.investments || [])].sort((a, b) => (a.maturityDate || '').localeCompare(b.maturityDate || '') || a.name.localeCompare(b.name));
@@ -874,12 +879,13 @@ $('copyReminderBtn').addEventListener('click', () => copyText($('reminderText').
 
 /* ---------- toolbar / navigation / lists ---------- */
 $('addCustomerBtn').addEventListener('click', () => openCustomerModal(null));
-$('reportsBtn').addEventListener('click', showReports);
-$('investmentsBtn').addEventListener('click', showInvestments);
-$('investBackBtn').addEventListener('click', showList);
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.tab === 'investments') showInvestments();
+  else if (b.dataset.tab === 'reports') showReports();
+  else showList();
+}));
 $('addInvestmentBtn').addEventListener('click', () => openInvestmentModal(null));
 $('maturingAlert').addEventListener('click', showInvestments);
-$('reportBackBtn').addEventListener('click', showList);
 $('reportMonth').addEventListener('change', ev => { reportMonth = ev.target.value; renderReports(); });
 $('copyReportBtn').addEventListener('click', () => copyText(buildReportText(), t('copied')));
 $('printReportBtn').addEventListener('click', () => window.print());
