@@ -75,6 +75,9 @@ const STR = {
     addCustomerFirst: 'Add a customer first',
     investments: 'Investments', addInvestment: 'Add investment',
     ledger: 'Ledger',
+    calReminder: 'Calendar reminder',
+    calReminderTitle: 'Reminder: {name} matures {date}',
+    dayLeft: 'day left',
     editInvestment: 'Edit investment', deleteInvestment: 'Delete investment',
     principal: 'Principal amount', annualRate: 'Annual interest rate (%)',
     startDate: 'Start date', maturityDate: 'Maturity date',
@@ -146,6 +149,9 @@ const STR = {
     addCustomerFirst: 'પહેલા ગ્રાહક ઉમેરો',
     investments: 'રોકાણો', addInvestment: 'રોકાણ ઉમેરો',
     ledger: 'ખાતાવહી',
+    calReminder: 'કેલેન્ડર રિમાઇન્ડર',
+    calReminderTitle: 'યાદ: {name} {date} ના રોજ પાકે છે',
+    dayLeft: 'દિવસ બાકી',
     editInvestment: 'રોકાણમાં ફેરફાર કરો', deleteInvestment: 'રોકાણ કાઢી નાખો',
     principal: 'મૂળ રકમ', annualRate: 'વાર્ષિક વ્યાજ દર (%)',
     startDate: 'શરૂઆતની તારીખ', maturityDate: 'પાકવાની તારીખ',
@@ -626,10 +632,11 @@ function invStatus(inv) {
 function maturingSoon() {
   return (state.investments || []).filter(inv => invStatus(inv).key === 'soon');
 }
+function daysLeftText(n) { return n === 1 ? '1 ' + t('dayLeft') : n + ' ' + t('daysLeft'); }
 function renderMaturingAlert() {
   const soon = maturingSoon();
   const text = soon.length
-    ? '⚠️ ' + soon.length + ' ' + t('maturingSoon') + ': ' + soon.map(inv => esc(inv.name) + ' (' + invStatus(inv).left + ' ' + t('daysLeft') + ')').join(', ')
+    ? '⚠️ ' + soon.length + ' ' + t('maturingSoon') + ': ' + soon.map(inv => esc(inv.name) + ' (' + daysLeftText(invStatus(inv).left) + ')').join(', ')
     : '';
   $('maturingAlert').innerHTML = text;
   $('investAlert').innerHTML = text;
@@ -655,7 +662,7 @@ function renderInvestments() {
     const interest = invInterest(inv);
     const maturityVal = interest === null ? null : round2(inv.principal + interest);
     const statusLabel = st.key === 'matured' ? t('matured') : st.key === 'soon' ? t('maturingSoon') : t('active');
-    const leftText = st.left === null || st.left < 0 ? '' : ' · ' + st.left + ' ' + t('daysLeft');
+    const leftText = st.left === null || st.left < 0 ? '' : ' · ' + daysLeftText(st.left);
     const returnText = maturityVal === null ? '' : ' · ' + t('maturityValue') + ': ' + fmt(maturityVal) + ' (' + t('interestEarned') + ' ' + fmt(interest) + ')';
     return `<div class="entry-row">
       <span class="entry-main"><span class="entry-note">${esc(inv.name)}</span><br>
@@ -663,8 +670,25 @@ function renderInvestments() {
       <span class="entry-amt">${fmt(inv.principal)}</span>
       <button type="button" class="entry-edit" data-edit-investment="${inv.id}" aria-label="${t('edit')}">✎</button>
       <button type="button" class="entry-edit" data-delete-investment="${inv.id}" aria-label="${t('delete')}">🗑</button>
+      <button type="button" class="entry-edit" data-calendar-investment="${inv.id}" aria-label="${t('calReminder')}" title="${t('calReminder')}">📅</button>
     </div>`;
   }).join('');
+}
+function calDate(iso) { return String(iso).slice(0, 10).replace(/-/g, ''); }
+function addDaysIso(iso, n) {
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function openCalendarReminder(inv) {
+  if (!inv.maturityDate) return;
+  const remind = inv.remindDays === undefined || inv.remindDays === null ? 7 : inv.remindDays;
+  let day = addDaysIso(inv.maturityDate, -remind);
+  if (day < localToday()) day = localToday();
+  const title = t('calReminderTitle').replace('{name}', inv.name).replace('{date}', displayDate(inv.maturityDate));
+  const details = t('principal') + ': ' + fmt(inv.principal) + ' · ' + t('maturityDate') + ': ' + displayDate(inv.maturityDate);
+  const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + calDate(day) + '/' + calDate(addDaysIso(day, 1)) + '&details=' + encodeURIComponent(details);
+  window.open(url, '_blank');
 }
 let editingInvestmentId = null;
 function openInvestmentModal(inv) {
@@ -945,6 +969,12 @@ document.addEventListener('click', ev => {
       state.investments = state.investments.filter(x => x.id !== inv.id);
       save(); render(); toast(t('investmentDeleted'));
     }
+    return;
+  }
+  const calInv = ev.target.closest('[data-calendar-investment]');
+  if (calInv) {
+    const inv = state.investments.find(x => x.id === calInv.dataset.calendarInvestment);
+    if (inv) openCalendarReminder(inv);
   }
 });
 document.querySelectorAll('.curr-btn').forEach(b => b.addEventListener('click', () => {

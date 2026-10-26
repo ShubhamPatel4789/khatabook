@@ -131,6 +131,10 @@ main { max-width: 640px; margin: 0 auto; padding: 12px; width: 100%; }
 .tab-badge.hidden { display: none; }
 .tab-btn[data-tab="investments"].active { background: var(--invest); border-color: var(--invest); color: #fff; }
 .tab-btn[data-tab="reports"].active { background: var(--report); border-color: var(--report); color: #fff; }
+.tab-btn[data-tab="ledger"]:not(.active) { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); }
+.tab-btn[data-tab="investments"]:not(.active) { background: color-mix(in srgb, var(--invest) 14%, transparent); color: var(--invest-soft); }
+.tab-btn[data-tab="reports"]:not(.active) { background: color-mix(in srgb, var(--report) 14%, transparent); color: var(--report-soft); }
+#quickAddEntryBtn { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary); border-color: var(--primary); }
 .dash-card.net .dash-value { color: var(--report-soft); }
 .dash-card.count .dash-value { color: var(--invest-soft); }
 #investView .btn-primary { background: var(--invest); border-color: var(--invest); color: #fff; }
