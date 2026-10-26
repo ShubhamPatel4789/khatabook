@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b7a4b">
+<title>Khatabook — ખાતાબુક</title>
+<script>
+  // Apply theme before paint (mirrors Billsplit v12): per-device choice, system default.
+  try {
+    var _tc = localStorage.getItem('khatabook.theme') || 'system';
+    var _dark = _tc === 'dark' || (_tc === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
+  } catch (e) { document.documentElement.dataset.theme = 'light'; }
+</script>
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand-row">
+    <div class="brand">
+      <h1 data-i18n="appName">Khatabook</h1>
+      <div class="tagline" data-i18n="tagline">Your digital ledger book</div>
+    </div>
+    <div class="lang-seg seg" role="group" aria-label="Language">
+      <button type="button" class="seg-btn" data-lang="en">EN</button>
+      <button type="button" class="seg-btn" data-lang="gu">ગુજરાતી</button>
+    </div>
+  </div>
+  <div class="controls-row">
+    <div class="seg" role="group" aria-label="Currency">
+      <button type="button" class="seg-btn curr-btn" data-currency="INR">₹</button>
+      <button type="button" class="seg-btn curr-btn" data-currency="USD">$</button>
+    </div>
+    <div class="seg theme-seg" role="group" aria-label="Theme">
+      <button type="button" class="seg-btn" data-theme-choice="system" data-i18n="system">System</button>
+      <button type="button" class="seg-btn" data-theme-choice="light" data-i18n="light">Light</button>
+      <button type="button" class="seg-btn" data-theme-choice="dark" data-i18n="dark">Dark</button>
+    </div>
+    <span id="userChip" class="user-chip hidden"></span>
+    <button type="button" id="signOutBtn" class="btn btn-ghost hidden" data-i18n="signOut">Sign out</button>
+  </div>
+  <div id="syncStatus" class="sync-status"></div>
+</header>
+
+<main>
+  <!-- Sign-in gate -->
+  <section id="authView" class="auth-view">
+    <div class="card auth-card">
+      <h2 data-i18n="signInTitle">Sign in to Khatabook</h2>
+      <p data-i18n="signInDesc">Sign in with Google to see your ledger on all your devices.</p>
+      <button type="button" id="googleSignInBtn" class="btn btn-primary btn-google" data-i18n="signInGoogle">Sign in with Google</button>
+      <div id="authError" class="auth-error hidden"></div>
+      <p class="auth-note" data-i18n="authNote">Note: this is one shared ledger — anyone who opens this app sees the same book.</p>
+    </div>
+  </section>
+
+  <!-- App (hidden until signed in) -->
+  <section id="appView" class="hidden">
+    <!-- Dashboard -->
+    <section class="dashboard" aria-label="Dashboard">
+      <div class="dash-card receive">
+        <div class="dash-label" data-i18n="totalToReceive">Total to receive</div>
+        <div class="dash-value" id="dashReceive">₹0.00</div>
+      </div>
+      <div class="dash-card pay">
+        <div class="dash-label" data-i18n="totalToPay">Total to pay</div>
+        <div class="dash-value" id="dashPay">₹0.00</div>
+      </div>
+      <div class="dash-card net">
+        <div class="dash-label" data-i18n="netBalance">Net balance</div>
+        <div class="dash-value" id="dashNet">₹0.00</div>
+      </div>
+      <div class="dash-card count">
+        <div class="dash-label" data-i18n="customers">Customers</div>
+        <div class="dash-value" id="dashCount">0</div>
+      </div>
+    </section>
+
+    <!-- Customer list view -->
+    <section id="listView">
+      <div class="toolbar">
+        <input type="search" id="searchInput" data-i18n-ph="search" placeholder="Search customers…" autocomplete="off">
+        <label class="sort-label"><span data-i18n="sortBy">Sort by</span>
+          <select id="sortSelect">
+            <option value="name" data-i18n="sortName">Name</option>
+            <option value="balance" data-i18n="sortBalance">Balance</option>
+            <option value="recent" data-i18n="sortRecent">Most recent</option>
+          </select>
+        </label>
+        <label class="dues-label"><input type="checkbox" id="duesOnly"> <span data-i18n="duesOnly">Dues only</span></label>
+        <button type="button" id="addCustomerBtn" class="btn btn-primary" data-i18n="addCustomer">Add customer</button>
+      </div>
+      <div id="customerList" class="customer-list"></div>
+      <div id="customerEmpty" class="empty hidden">
+        <div class="empty-title" data-i18n="noCustomers">No customers yet</div>
+        <div data-i18n="noCustomersHint">Tap “Add customer” to start your first khata.</div>
+      </div>
+    </section>
+
+    <!-- Per-customer ledger view -->
+    <section id="detailView" class="hidden">
+      <button type="button" id="backBtn" class="btn btn-ghost">← <span data-i18n="back">Back</span></button>
+      <div class="detail-head">
+        <div>
+          <h2 id="detailName"></h2>
+          <div id="detailPhone" class="detail-phone"></div>
+        </div>
+        <div class="detail-balance">
+          <div class="detail-balance-label" id="detailBalanceLabel"></div>
+          <div class="detail-balance-value" id="detailBalanceValue"></div>
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button type="button" id="addEntryBtn" class="btn btn-primary" data-i18n="addEntry">Add entry</button>
+        <button type="button" id="editCustomerBtn" class="btn" data-i18n="editCustomer">Edit customer</button>
+        <button type="button" id="deleteCustomerBtn" class="btn btn-danger" data-i18n="deleteCustomer">Delete customer</button>
+        <button type="button" id="statementBtn" class="btn" data-i18n="viewStatement">View statement</button>
+        <button type="button" id="reminderBtn" class="btn hidden" data-i18n="sendReminder">Payment reminder</button>
+      </div>
+      <div class="entry-filters">
+        <label><span data-i18n="filterType">Entry type</span>
+          <select id="entryTypeFilter">
+            <option value="all" data-i18n="all">All</option>
+            <option value="gave" data-i18n="gave">You gave</option>
+            <option value="got" data-i18n="got">You got</option>
+          </select>
+        </label>
+        <label><span data-i18n="from">From</span> <input type="date" id="dateFrom"></label>
+        <label><span data-i18n="to">To</span> <input type="date" id="dateTo"></label>
+        <button type="button" id="clearFiltersBtn" class="btn btn-ghost" data-i18n="clearFilters">Clear filters</button>
+      </div>
+      <div id="entryList" class="entry-list"></div>
+      <div id="entryEmpty" class="empty hidden">
+        <div data-i18n="noEntries">No entries yet</div>
+        <div data-i18n="addFirstEntry">Add the first entry for this customer.</div>
+      </div>
+      <div id="entryNoMatch" class="empty hidden" data-i18n="noEntriesMatch">No entries match these filters.</div>
+    </section>
+
+    <!-- Backup -->
+    <section class="backup card">
+      <h3 data-i18n="backup">Backup</h3>
+      <div class="backup-row">
+        <button type="button" id="exportBtn" class="btn" data-i18n="export">Export backup</button>
+        <label class="btn file-label" for="importFile" data-i18n="import">Import backup</label>
+        <input type="file" id="importFile" accept="application/json,.json" class="hidden-file">
+      </div>
+    </section>
+  </section>
+</main>
+
+<!-- Customer modal -->
+<div id="customerModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="customerModalTitle" data-i18n="addCustomer">Add customer</h3>
+    <form id="customerForm">
+      <label><span data-i18n="name">Name</span>
+        <input type="text" id="custName" required autocomplete="off">
+      </label>
+      <label><span data-i18n="phone">Phone (optional)</span>
+        <input type="tel" id="custPhone" autocomplete="off">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Entry modal -->
+<div id="entryModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="entryModalTitle" data-i18n="addEntry">Add entry</h3>
+    <form id="entryForm">
+      <div class="seg" role="group">
+        <button type="button" class="seg-btn type-btn" data-entry-type="gave" data-i18n="gave">You gave</button>
+        <button type="button" class="seg-btn type-btn" data-entry-type="got" data-i18n="got">You got</button>
+      </div>
+      <label><span data-i18n="amount">Amount</span>
+        <input type="number" id="entryAmount" min="0.01" step="0.01" inputmode="decimal" required>
+      </label>
+      <label><span data-i18n="date">Date</span>
+        <input type="date" id="entryDate" required>
+      </label>
+      <label><span data-i18n="note">Note (optional)</span>
+        <input type="text" id="entryNote" autocomplete="off">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
+        <button type="button" id="entryDeleteBtn" class="btn btn-danger hidden" data-i18n="delete">Delete</button>
+        <button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Statement sheet (printable) -->
+<div id="statementSheet" class="modal-backdrop hidden">
+  <div class="modal statement-modal" role="dialog" aria-modal="true">
+    <div id="statementContent"></div>
+    <div class="modal-actions statement-actions">
+      <button type="button" class="btn btn-ghost" data-modal-close data-i18n="close">Close</button>
+      <button type="button" id="copyStatementBtn" class="btn" data-i18n="copyStatement">Copy statement</button>
+      <button type="button" id="printStatementBtn" class="btn btn-primary" data-i18n="print">Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reminder draft modal -->
+<div id="reminderModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 data-i18n="sendReminder">Payment reminder</h3>
+    <p class="modal-hint" data-i18n="reminderHint">A draft message only — nothing is sent from this app.</p>
+    <textarea id="reminderText" rows="5" readonly></textarea>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" data-modal-close data-i18n="close">Close</button>
+      <button type="button" id="copyReminderBtn" class="btn btn-primary" data-i18n="copy">Copy</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="app.js?v=1"></script>
+</body>
+</html>
