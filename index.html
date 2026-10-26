@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <header class="topbar">
@@ -76,6 +76,7 @@
         <div class="dash-value" id="dashCount">0</div>
       </div>
     </section>
+    <div id="maturingAlert" class="maturing-alert hidden"></div>
 
     <!-- Customer list view -->
     <section id="listView">
@@ -92,6 +93,7 @@
         <button type="button" id="addCustomerBtn" class="btn btn-primary" data-i18n="addCustomer">Add customer</button>
         <button type="button" id="quickAddEntryBtn" class="btn btn-primary" data-i18n="addEntry">Add entry</button>
         <button type="button" id="reportsBtn" class="btn" data-i18n="reports">Reports</button>
+        <button type="button" id="investmentsBtn" class="btn" data-i18n="investments">Investments</button>
       </div>
       <div id="customerList" class="customer-list"></div>
       <div id="customerEmpty" class="empty hidden">
@@ -169,6 +171,20 @@
       <div class="detail-actions">
         <button type="button" id="copyReportBtn" class="btn" data-i18n="copyReport">Copy report</button>
         <button type="button" id="printReportBtn" class="btn btn-primary" data-i18n="print">Print</button>
+      </div>
+    </section>
+
+    <!-- Investments view -->
+    <section id="investView" class="hidden">
+      <button type="button" id="investBackBtn" class="btn btn-ghost">← <span data-i18n="back">Back</span></button>
+      <div id="investAlert" class="maturing-alert hidden"></div>
+      <div class="detail-actions">
+        <button type="button" id="addInvestmentBtn" class="btn btn-primary" data-i18n="addInvestment">Add investment</button>
+      </div>
+      <div id="investmentList" class="entry-list"></div>
+      <div id="investmentEmpty" class="empty hidden">
+        <div data-i18n="noInvestments">No investments yet</div>
+        <div data-i18n="addFirstInvestment">Add your first fixed deposit or investment.</div>
       </div>
     </section>
 
@@ -263,6 +279,41 @@
   </div>
 </div>
 
+<!-- Investment modal -->
+<div id="investmentModal" class="modal-backdrop hidden">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="investmentModalTitle" data-i18n="addInvestment">Add investment</h3>
+    <form id="investmentForm">
+      <label><span data-i18n="name">Name</span>
+        <input type="text" id="invName" required autocomplete="off">
+      </label>
+      <label><span data-i18n="principal">Principal amount</span>
+        <input type="number" id="invPrincipal" min="0.01" step="0.01" inputmode="decimal" required>
+      </label>
+      <label><span data-i18n="annualRate">Annual interest rate (%)</span>
+        <input type="number" id="invRate" min="0" step="0.01" inputmode="decimal">
+      </label>
+      <label><span data-i18n="startDate">Start date</span>
+        <input type="date" id="invStart">
+      </label>
+      <label><span data-i18n="maturityDate">Maturity date</span>
+        <input type="date" id="invMaturity" required>
+      </label>
+      <label><span data-i18n="remindDays">Remind me (days before)</span>
+        <input type="number" id="invRemind" min="0" step="1" value="7">
+      </label>
+      <label><span data-i18n="note">Note (optional)</span>
+        <input type="text" id="invNote" autocomplete="off">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
+        <button type="button" id="investmentDeleteBtn" class="btn btn-danger hidden" data-i18n="delete">Delete</button>
+        <button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- Statement sheet (printable) -->
 <div id="statementSheet" class="modal-backdrop hidden">
   <div class="modal statement-modal" role="dialog" aria-modal="true">
@@ -293,6 +344,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

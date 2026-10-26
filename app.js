@@ -73,6 +73,19 @@ const STR = {
     oldBookMoved: 'Old book moved to your private book ✓',
     enterName: 'Enter a name', enterAmount: 'Enter an amount',
     addCustomerFirst: 'Add a customer first',
+    investments: 'Investments', addInvestment: 'Add investment',
+    editInvestment: 'Edit investment', deleteInvestment: 'Delete investment',
+    principal: 'Principal amount', annualRate: 'Annual interest rate (%)',
+    startDate: 'Start date', maturityDate: 'Maturity date',
+    remindDays: 'Remind me (days before)',
+    daysLeft: 'days left', maturingSoon: 'Maturing soon', matured: 'Matured', active: 'Active',
+    interestEarned: 'Interest', maturityValue: 'Maturity value',
+    noInvestments: 'No investments yet',
+    addFirstInvestment: 'Add your first fixed deposit or investment.',
+    confirmDeleteInvestment: 'Delete this investment? This cannot be undone.',
+    investmentAdded: 'Investment added ✓', investmentUpdated: 'Investment updated ✓',
+    investmentDeleted: 'Investment deleted',
+    enterPrincipal: 'Enter a principal amount',
     imported: 'Backup imported ✓', importFailed: 'That file could not be imported',
     exported: 'Backup downloaded ✓',
     noEntries: 'No entries yet', addFirstEntry: 'Add the first entry for this customer.',
@@ -130,6 +143,19 @@ const STR = {
     oldBookMoved: 'જૂનું ખાતું તમારા ખાનગી ખાતામાં ખસેડાયું ✓',
     enterName: 'નામ લખો', enterAmount: 'રકમ લખો',
     addCustomerFirst: 'પહેલા ગ્રાહક ઉમેરો',
+    investments: 'રોકાણો', addInvestment: 'રોકાણ ઉમેરો',
+    editInvestment: 'રોકાણમાં ફેરફાર કરો', deleteInvestment: 'રોકાણ કાઢી નાખો',
+    principal: 'મૂળ રકમ', annualRate: 'વાર્ષિક વ્યાજ દર (%)',
+    startDate: 'શરૂઆતની તારીખ', maturityDate: 'પાકવાની તારીખ',
+    remindDays: 'કેટલા દિવસ પહેલા યાદ અપાવવું',
+    daysLeft: 'દિવસ બાકી', maturingSoon: 'ટૂંક સમયમાં પાકશે', matured: 'પાકી ગયું', active: 'ચાલુ',
+    interestEarned: 'વ્યાજ', maturityValue: 'પાકતી કિંમત',
+    noInvestments: 'હજુ કોઈ રોકાણ નથી',
+    addFirstInvestment: 'પહેલી ફિક્સ્ડ ડિપોઝિટ કે રોકાણ ઉમેરો.',
+    confirmDeleteInvestment: 'આ રોકાણ કાઢી નાખવું છે? આ પાછું લઈ શકાશે નહીં.',
+    investmentAdded: 'રોકાણ ઉમેરાયું ✓', investmentUpdated: 'રોકાણ અપડેટ થયું ✓',
+    investmentDeleted: 'રોકાણ કાઢી નાખ્યું',
+    enterPrincipal: 'મૂળ રકમ લખો',
     imported: 'બેકઅપ ઇમ્પોર્ટ થયો ✓', importFailed: 'તે ફાઇલ ઇમ્પોર્ટ થઈ શકી નથી',
     exported: 'બેકઅપ ડાઉનલોડ થયો ✓',
     noEntries: 'હજુ કોઈ નોંધ નથી', addFirstEntry: 'આ ગ્રાહક માટે પહેલી નોંધ ઉમેરો.',
@@ -183,14 +209,14 @@ if (themeMQ.addEventListener) themeMQ.addEventListener('change', applyTheme);
 const LS_KEY = 'khatabook.v1';
 let currentUser = null; // set by auth; the cache key is per user so books never mix on one device
 const cacheKey = () => currentUser ? LS_KEY + '.' + currentUser.uid : LS_KEY;
-let state = { currency: 'INR', customers: [], entries: [] };
+let state = { currency: 'INR', customers: [], entries: [], investments: [] };
 function loadLocalCache() {
   try {
     const raw = localStorage.getItem(cacheKey());
     if (raw) {
       const p = JSON.parse(raw);
       if (p && Array.isArray(p.customers) && Array.isArray(p.entries)) {
-        state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries };
+        state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries, investments: Array.isArray(p.investments) ? p.investments : [] };
       }
     }
   } catch (e) {}
@@ -232,7 +258,7 @@ function adoptRemote(remote) {
   try {
     const p = JSON.parse(remote);
     if (!validKb(p)) return;
-    state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries };
+    state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries, investments: Array.isArray(p.investments) ? p.investments : [] };
     try { localStorage.setItem(cacheKey(), remote); } catch (e) {}
     render();
   } catch (e) { console.warn('Could not apply cloud data', e); }
@@ -341,7 +367,7 @@ function initAuth() {
     } else {
       if (kbUnsub) { kbUnsub(); kbUnsub = null; }
       kbRef = null; syncStarted = false; pendingPush = false;
-      state = { currency: 'INR', customers: [], entries: [] };
+      state = { currency: 'INR', customers: [], entries: [], investments: [] };
       $('authView').classList.remove('hidden');
       $('appView').classList.add('hidden');
       $('userChip').classList.add('hidden');
@@ -399,11 +425,13 @@ function toast(msg) {
 }
 let selectedId = null, sortKey = 'name', duesOnly = false;
 let entryTypeFilter = 'all', dateFrom = '', dateTo = '';
-let reportMonth = 'all', reportsOpen = false;
+let reportMonth = 'all', reportsOpen = false, investmentsOpen = false;
 
 function render() {
   document.querySelectorAll('.curr-btn').forEach(b => b.classList.toggle('active', b.dataset.currency === state.currency));
+  renderMaturingAlert();
   if (reportsOpen) { renderReports(); return; }
+  if (investmentsOpen) { renderInvestments(); return; }
   renderDashboard();
   renderCustomers();
   if (selectedId) renderDetail(); else { $('listView').classList.remove('hidden'); $('detailView').classList.add('hidden'); }
@@ -437,17 +465,30 @@ function renderCustomers() {
 function showList() {
   selectedId = null;
   reportsOpen = false;
+  investmentsOpen = false;
   $('listView').classList.remove('hidden');
   $('detailView').classList.add('hidden');
   $('reportView').classList.add('hidden');
+  $('investView').classList.add('hidden');
   renderCustomers();
 }
 function showReports() {
   reportsOpen = true;
+  investmentsOpen = false;
   $('listView').classList.add('hidden');
   $('detailView').classList.add('hidden');
+  $('investView').classList.add('hidden');
   $('reportView').classList.remove('hidden');
   renderReports();
+}
+function showInvestments() {
+  investmentsOpen = true;
+  reportsOpen = false;
+  $('listView').classList.add('hidden');
+  $('detailView').classList.add('hidden');
+  $('reportView').classList.add('hidden');
+  $('investView').classList.remove('hidden');
+  renderInvestments();
 }
 function showDetail(id) {
   selectedId = id;
@@ -567,6 +608,107 @@ function buildReportText() {
   });
   return lines.join('\n');
 }
+
+/* ---------- investments: principal, returns, maturity alerts ---------- */
+function daysBetween(a, b) {
+  const pa = Date.parse(String(a) + 'T00:00:00Z'), pb = Date.parse(String(b) + 'T00:00:00Z');
+  if (isNaN(pa) || isNaN(pb)) return null;
+  return Math.round((pb - pa) / 86400000);
+}
+function invInterest(inv) {
+  if (!inv.rate || !inv.startDate || !inv.maturityDate) return null;
+  const days = daysBetween(inv.startDate, inv.maturityDate);
+  if (days === null || days < 0) return null;
+  return round2(inv.principal * (inv.rate / 100) * (days / 365));
+}
+function invStatus(inv) {
+  const left = daysBetween(localToday(), inv.maturityDate);
+  if (left === null) return { key: 'active', left: null };
+  if (left < 0) return { key: 'matured', left };
+  if (left <= (inv.remindDays === undefined || inv.remindDays === null ? 7 : inv.remindDays)) return { key: 'soon', left };
+  return { key: 'active', left };
+}
+function maturingSoon() {
+  return (state.investments || []).filter(inv => invStatus(inv).key === 'soon');
+}
+function renderMaturingAlert() {
+  const soon = maturingSoon();
+  const text = soon.length
+    ? '⚠️ ' + soon.length + ' ' + t('maturingSoon') + ': ' + soon.map(inv => esc(inv.name) + ' (' + invStatus(inv).left + ' ' + t('daysLeft') + ')').join(', ')
+    : '';
+  [$('maturingAlert'), $('investAlert')].forEach(el => {
+    if (!el) return;
+    el.innerHTML = text;
+    el.classList.toggle('hidden', !soon.length);
+  });
+}
+function renderInvestments() {
+  const list = [...(state.investments || [])].sort((a, b) => (a.maturityDate || '').localeCompare(b.maturityDate || '') || a.name.localeCompare(b.name));
+  $('investmentEmpty').classList.toggle('hidden', list.length > 0);
+  $('investmentList').innerHTML = list.map(inv => {
+    const st = invStatus(inv);
+    const interest = invInterest(inv);
+    const maturityVal = interest === null ? null : round2(inv.principal + interest);
+    const statusLabel = st.key === 'matured' ? t('matured') : st.key === 'soon' ? t('maturingSoon') : t('active');
+    const leftText = st.left === null || st.left < 0 ? '' : ' · ' + st.left + ' ' + t('daysLeft');
+    const returnText = maturityVal === null ? '' : ' · ' + t('maturityValue') + ': ' + fmt(maturityVal) + ' (' + t('interestEarned') + ' ' + fmt(interest) + ')';
+    return `<div class="entry-row">
+      <span class="entry-main"><span class="entry-note">${esc(inv.name)}</span><br>
+      <span class="entry-meta">${t('principal')}: ${fmt(inv.principal)}${inv.rate ? ' · ' + inv.rate + '%' : ''} · ${t('maturityDate')}: ${displayDate(inv.maturityDate)}${leftText} · ${statusLabel}${returnText}${inv.note ? ' · ' + esc(inv.note) : ''}</span></span>
+      <span class="entry-amt">${fmt(inv.principal)}</span>
+      <button type="button" class="entry-edit" data-edit-investment="${inv.id}" aria-label="${t('edit')}">✎</button>
+      <button type="button" class="entry-edit" data-delete-investment="${inv.id}" aria-label="${t('delete')}">🗑</button>
+    </div>`;
+  }).join('');
+}
+let editingInvestmentId = null;
+function openInvestmentModal(inv) {
+  editingInvestmentId = inv ? inv.id : null;
+  $('investmentModalTitle').dataset.i18n = inv ? 'editInvestment' : 'addInvestment';
+  applyTranslations();
+  $('invName').value = inv ? inv.name : '';
+  $('invPrincipal').value = inv ? inv.principal : '';
+  $('invRate').value = inv && inv.rate !== undefined && inv.rate !== null ? inv.rate : '';
+  $('invStart').value = inv ? (inv.startDate || '') : localToday();
+  $('invMaturity').value = inv ? inv.maturityDate : '';
+  $('invRemind').value = inv && inv.remindDays !== undefined && inv.remindDays !== null ? inv.remindDays : 7;
+  $('invNote').value = inv ? (inv.note || '') : '';
+  $('investmentDeleteBtn').classList.toggle('hidden', !editingInvestmentId);
+  openModal('investmentModal');
+  setTimeout(() => $('invName').focus(), 100);
+}
+$('investmentForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const name = $('invName').value.trim();
+  if (!name) { toast(t('enterName')); return; }
+  const principal = round2(parseFloat($('invPrincipal').value));
+  if (!principal || principal <= 0) { toast(t('enterPrincipal')); return; }
+  const rateRaw = ($('invRate').value || '').trim();
+  const rateParsed = rateRaw === '' ? NaN : parseFloat(rateRaw);
+  const data = {
+    name, principal,
+    rate: isNaN(rateParsed) ? null : round2(rateParsed),
+    startDate: $('invStart').value || '',
+    maturityDate: $('invMaturity').value || '',
+    remindDays: Math.max(0, parseInt($('invRemind').value, 10) || 0),
+    note: $('invNote').value.trim()
+  };
+  if (editingInvestmentId) {
+    const inv = state.investments.find(x => x.id === editingInvestmentId);
+    if (inv) Object.assign(inv, data);
+    toast(t('investmentUpdated'));
+  } else {
+    state.investments.push({ id: uid(), ...data });
+    toast(t('investmentAdded'));
+  }
+  save(); closeModals(); render();
+});
+$('investmentDeleteBtn').addEventListener('click', () => {
+  if (!editingInvestmentId) return;
+  if (!confirm(t('confirmDeleteInvestment'))) return;
+  state.investments = state.investments.filter(x => x.id !== editingInvestmentId);
+  save(); closeModals(); render(); toast(t('investmentDeleted'));
+});
 
 /* ---------- modals ---------- */
 function openModal(id) { $(id).classList.remove('hidden'); }
@@ -733,6 +875,10 @@ $('copyReminderBtn').addEventListener('click', () => copyText($('reminderText').
 /* ---------- toolbar / navigation / lists ---------- */
 $('addCustomerBtn').addEventListener('click', () => openCustomerModal(null));
 $('reportsBtn').addEventListener('click', showReports);
+$('investmentsBtn').addEventListener('click', showInvestments);
+$('investBackBtn').addEventListener('click', showList);
+$('addInvestmentBtn').addEventListener('click', () => openInvestmentModal(null));
+$('maturingAlert').addEventListener('click', showInvestments);
 $('reportBackBtn').addEventListener('click', showList);
 $('reportMonth').addEventListener('change', ev => { reportMonth = ev.target.value; renderReports(); });
 $('copyReportBtn').addEventListener('click', () => copyText(buildReportText(), t('copied')));
@@ -778,6 +924,21 @@ document.addEventListener('click', ev => {
       state.entries = state.entries.filter(x => x.id !== e.id);
       save(); render(); toast(t('entryDeleted'));
     }
+    return;
+  }
+  const editInv = ev.target.closest('[data-edit-investment]');
+  if (editInv) {
+    const inv = state.investments.find(x => x.id === editInv.dataset.editInvestment);
+    if (inv) openInvestmentModal(inv);
+    return;
+  }
+  const delInv = ev.target.closest('[data-delete-investment]');
+  if (delInv) {
+    const inv = state.investments.find(x => x.id === delInv.dataset.deleteInvestment);
+    if (inv && confirm(t('confirmDeleteInvestment'))) {
+      state.investments = state.investments.filter(x => x.id !== inv.id);
+      save(); render(); toast(t('investmentDeleted'));
+    }
   }
 });
 document.querySelectorAll('.curr-btn').forEach(b => b.addEventListener('click', () => {
@@ -808,7 +969,8 @@ $('importFile').addEventListener('change', ev => {
       state = {
         currency: (data.currency === 'USD' ? 'USD' : 'INR'),
         customers: data.customers,
-        entries: data.entries.filter(e => ids.has(e.customerId))
+        entries: data.entries.filter(e => ids.has(e.customerId)),
+        investments: Array.isArray(data.investments) ? data.investments : []
       };
       selectedId = null;
       save(); showList(); render(); toast(t('imported'));
