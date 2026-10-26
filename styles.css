@@ -117,6 +117,9 @@ main { max-width: 640px; margin: 0 auto; padding: 12px; width: 100%; }
 .entry-amt { flex: 0 0 auto; font-weight: 800; }
 .entry-edit { flex: 0 0 auto; border: 0; background: transparent; font-size: 18px; padding: 4px 8px; }
 
+/* Maturing-investment alert */
+.maturing-alert { background: var(--card); border: 1px solid #d97706; border-left: 6px solid #d97706; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; box-shadow: var(--shadow); cursor: pointer; }
+
 /* Backup */
 .backup { margin-top: 16px; }
 .backup h3 { margin: 0 0 8px; }
