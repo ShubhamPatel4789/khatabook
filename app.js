@@ -77,6 +77,10 @@ const STR = {
     ledger: 'Ledger',
     calReminder: 'Calendar reminder',
     calReminderTitle: 'Reminder: {name} matures {date}',
+    calFileSaved: 'Calendar file downloaded — open it and pick your calendar app',
+    photo: 'Photo (optional)', removePhoto: 'Remove photo',
+    photoTooLarge: 'Photo too large — try a smaller photo',
+    bookTooLarge: 'Too many photos — remove an old photo first',
     dayLeft: 'day left',
     editInvestment: 'Edit investment', deleteInvestment: 'Delete investment',
     principal: 'Principal amount', annualRate: 'Annual interest rate (%)',
@@ -151,6 +155,10 @@ const STR = {
     ledger: 'ખાતાવહી',
     calReminder: 'કેલેન્ડર રિમાઇન્ડર',
     calReminderTitle: 'યાદ: {name} {date} ના રોજ પાકે છે',
+    calFileSaved: 'કેલેન્ડર ફાઇલ ડાઉનલોડ થઈ ગઈ — તેને ખોલીને તમારી કેલેન્ડર એપ પસંદ કરો',
+    photo: 'ફોટો (વૈકલ્પિક)', removePhoto: 'ફોટો દૂર કરો',
+    photoTooLarge: 'ફોટો ખૂબ મોટો છે — નાનો ફોટો પસંદ કરો',
+    bookTooLarge: 'ઘણા બધા ફોટા છે — પહેલા જૂનો ફોટો દૂર કરો',
     dayLeft: 'દિવસ બાકી',
     editInvestment: 'રોકાણમાં ફેરફાર કરો', deleteInvestment: 'રોકાણ કાઢી નાખો',
     principal: 'મૂળ રકમ', annualRate: 'વાર્ષિક વ્યાજ દર (%)',
@@ -473,7 +481,7 @@ function renderCustomers() {
     const b = balanceOf(c.id);
     const initial = (c.name.trim()[0] || '?').toUpperCase();
     return `<button type="button" class="cust-row" data-open="${c.id}">
-      <span class="cust-avatar">${esc(initial)}</span>
+      ${c.image ? `<img class="cust-photo" src="${c.image}" alt="">` : `<span class="cust-avatar">${esc(initial)}</span>`}
       <span class="cust-main"><span class="cust-name">${esc(c.name)}</span>${c.kbUser ? `<span class="kb-badge">${t('kbUser')}</span>` : ''}${c.phone ? `<span class="cust-phone">${esc(c.phone)}</span>` : ''}${c.email ? `<span class="cust-phone">${esc(c.email)}</span>` : ''}</span>
       <span class="cust-bal ${balClass(b)}">${fmt(b)}<small>${balLabel(b)}</small></span>
     </button>`;
@@ -505,6 +513,9 @@ function renderDetail() {
   $('detailPhone').textContent = c.phone || '';
   $('detailEmail').textContent = c.email || '';
   $('detailKbBadge').classList.toggle('hidden', !c.kbUser);
+  const dp = $('detailPhoto');
+  if (c.image) { dp.src = c.image; dp.classList.remove('hidden'); dp.dataset.viewPhoto = 'customer:' + c.id; }
+  else { dp.src = ''; dp.classList.add('hidden'); delete dp.dataset.viewPhoto; }
   $('detailBalanceLabel').textContent = balLabel(b);
   const bv = $('detailBalanceValue');
   bv.textContent = fmt(b);
@@ -524,6 +535,7 @@ function renderDetail() {
       <span class="entry-type ${e.type}">${typeLabel}</span>
       <span class="entry-main"><span class="entry-note">${e.note ? esc(e.note) : typeLabel}</span>
       <span class="entry-meta">${displayDate(e.date)}</span></span>
+      ${e.image ? `<button type="button" class="entry-thumb" data-view-photo="entry:${e.id}" aria-label="${t('photo')}"><img src="${e.image}" alt=""></button>` : ''}
       <span class="entry-amt">${fmt(e.amount)}</span>
       <button type="button" class="entry-edit" data-edit-entry="${e.id}" aria-label="${t('edit')}">✎</button>
       <button type="button" class="entry-edit" data-delete-entry="${e.id}" aria-label="${t('delete')}">🗑</button>
@@ -667,6 +679,7 @@ function renderInvestments() {
     return `<div class="entry-row">
       <span class="entry-main"><span class="entry-note">${esc(inv.name)}</span><br>
       <span class="entry-meta">${t('principal')}: ${fmt(inv.principal)}${inv.rate ? ' · ' + inv.rate + '%' : ''} · ${t('maturityDate')}: ${displayDate(inv.maturityDate)}${leftText} · ${statusLabel}${returnText}${inv.note ? ' · ' + esc(inv.note) : ''}</span></span>
+      ${inv.image ? `<button type="button" class="entry-thumb" data-view-photo="investment:${inv.id}" aria-label="${t('photo')}"><img src="${inv.image}" alt=""></button>` : ''}
       <span class="entry-amt">${fmt(inv.principal)}</span>
       <button type="button" class="entry-edit" data-edit-investment="${inv.id}" aria-label="${t('edit')}">✎</button>
       <button type="button" class="entry-edit" data-delete-investment="${inv.id}" aria-label="${t('delete')}">🗑</button>
@@ -680,15 +693,31 @@ function addDaysIso(iso, n) {
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
-function openCalendarReminder(inv) {
+function icsEscape(s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
+function icsFold(line) { let out = ''; while (line.length > 75) { out += line.slice(0, 75) + '\r\n '; line = line.slice(75); } return out + line; }
+function buildIcs(inv, day) {
+  const title = t('calReminderTitle').replace('{name}', inv.name).replace('{date}', displayDate(inv.maturityDate));
+  const details = t('principal') + ': ' + fmt(inv.principal) + ' · ' + t('maturityDate') + ': ' + displayDate(inv.maturityDate);
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Khatabook//EN', 'BEGIN:VEVENT',
+    'UID:' + inv.id + '@khatabook', 'DTSTAMP:' + stamp,
+    'DTSTART;VALUE=DATE:' + calDate(day), 'DTEND;VALUE=DATE:' + calDate(addDaysIso(day, 1)),
+    'SUMMARY:' + icsEscape(title), 'DESCRIPTION:' + icsEscape(details),
+    'END:VEVENT', 'END:VCALENDAR'];
+  return lines.map(icsFold).join('\r\n');
+}
+function downloadCalendarReminder(inv) {
   if (!inv.maturityDate) return;
   const remind = inv.remindDays === undefined || inv.remindDays === null ? 7 : inv.remindDays;
   let day = addDaysIso(inv.maturityDate, -remind);
   if (day < localToday()) day = localToday();
-  const title = t('calReminderTitle').replace('{name}', inv.name).replace('{date}', displayDate(inv.maturityDate));
-  const details = t('principal') + ': ' + fmt(inv.principal) + ' · ' + t('maturityDate') + ': ' + displayDate(inv.maturityDate);
-  const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + calDate(day) + '/' + calDate(addDaysIso(day, 1)) + '&details=' + encodeURIComponent(details);
-  window.open(url, '_blank');
+  const blob = new Blob([buildIcs(inv, day)], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = inv.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-reminder.ics';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(t('calFileSaved'));
 }
 let editingInvestmentId = null;
 function openInvestmentModal(inv) {
@@ -703,6 +732,7 @@ function openInvestmentModal(inv) {
   $('invRemind').value = inv && inv.remindDays !== undefined && inv.remindDays !== null ? inv.remindDays : 7;
   $('invNote').value = inv ? (inv.note || '') : '';
   $('investmentDeleteBtn').classList.toggle('hidden', !editingInvestmentId);
+  setPhotoField('inv', inv ? inv.image : null);
   openModal('investmentModal');
   setTimeout(() => $('invName').focus(), 100);
 }
@@ -724,10 +754,11 @@ $('investmentForm').addEventListener('submit', ev => {
   };
   if (editingInvestmentId) {
     const inv = state.investments.find(x => x.id === editingInvestmentId);
-    if (inv) Object.assign(inv, data);
+    if (inv) { Object.assign(inv, data); applyPhoto(inv, 'inv'); }
     toast(t('investmentUpdated'));
   } else {
-    state.investments.push({ id: uid(), ...data });
+    const rec = { id: uid(), ...data }; applyPhoto(rec, 'inv');
+    state.investments.push(rec);
     toast(t('investmentAdded'));
   }
   save(); closeModals(); render();
@@ -756,6 +787,7 @@ function openCustomerModal(customer) {
   $('custPhone').value = customer ? (customer.phone || '') : '';
   $('custEmail').value = customer ? (customer.email || '') : '';
   $('custKbUser').checked = !!(customer && customer.kbUser);
+  setPhotoField('cust', customer ? customer.image : null);
   openModal('customerModal');
   setTimeout(() => $('custName').focus(), 100);
 }
@@ -768,10 +800,11 @@ $('customerForm').addEventListener('submit', ev => {
   const kbUser = $('custKbUser').checked;
   if (editingCustomerId) {
     const c = state.customers.find(x => x.id === editingCustomerId);
-    if (c) { c.name = name; c.phone = phone; c.email = email; c.kbUser = kbUser; }
+    if (c) { c.name = name; c.phone = phone; c.email = email; c.kbUser = kbUser; applyPhoto(c, 'cust'); }
     toast(t('customerUpdated'));
   } else {
-    state.customers.push({ id: uid(), name, phone, email, kbUser });
+    const rec = { id: uid(), name, phone, email, kbUser }; applyPhoto(rec, 'cust');
+    state.customers.push(rec);
     toast(t('customerAdded'));
   }
   save(); closeModals(); render();
@@ -792,6 +825,7 @@ function openEntryModal(entry) {
   $('entryDate').value = entry ? entry.date : localToday();
   $('entryNote').value = entry ? (entry.note || '') : '';
   $('entryDeleteBtn').classList.toggle('hidden', !editingEntryId);
+  setPhotoField('entry', entry ? entry.image : null);
   openModal('entryModal');
   setTimeout(() => $('entryAmount').focus(), 100);
 }
@@ -802,10 +836,11 @@ $('entryForm').addEventListener('submit', ev => {
   const data = { type: entryType, amount, date: $('entryDate').value || localToday(), note: $('entryNote').value.trim() };
   if (editingEntryId) {
     const e = state.entries.find(x => x.id === editingEntryId);
-    if (e) Object.assign(e, data);
+    if (e) { Object.assign(e, data); applyPhoto(e, 'entry'); }
     toast(t('entryUpdated'));
   } else {
-    state.entries.push({ id: uid(), customerId: selectedId, _seq: Date.now(), ...data });
+    const rec = { id: uid(), customerId: selectedId, _seq: Date.now(), ...data }; applyPhoto(rec, 'entry');
+    state.entries.push(rec);
     toast(t('entryAdded'));
   }
   save(); closeModals(); render();
@@ -832,6 +867,7 @@ function openQuickAdd() {
   $('quickAmount').value = '';
   $('quickDate').value = localToday();
   $('quickNote').value = '';
+  setPhotoField('quick', null);
   openModal('quickAddModal');
   setTimeout(() => $('quickAmount').focus(), 100);
 }
@@ -843,8 +879,66 @@ $('quickAddForm').addEventListener('submit', ev => {
   const cid = $('quickCustomer').value;
   if (!state.customers.find(c => c.id === cid)) { toast(t('addCustomerFirst')); return; }
   state.entries.push({ id: uid(), customerId: cid, _seq: Date.now(), type: quickType, amount, date: $('quickDate').value || localToday(), note: $('quickNote').value.trim() });
+  applyPhoto(state.entries[state.entries.length - 1], 'quick');
   save(); closeModals(); render(); toast(t('entryAdded'));
 });
+
+/* ---------- record photos (customer / entry / investment) ---------- */
+const pendingImages = {};
+function compressImage(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try {
+        for (const max of [1024, 768, 512]) {
+          const scale = Math.min(1, max / Math.max(img.width, img.height));
+          const w = Math.max(1, Math.round(img.width * scale));
+          const h = Math.max(1, Math.round(img.height * scale));
+          const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(img, 0, 0, w, h);
+          const data = cv.toDataURL('image/jpeg', 0.75);
+          if (data.length <= 250000) { resolve(data); return; }
+        }
+      } catch (e) { /* fall through to null */ }
+      resolve(null);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+function showPhotoPreview(prefix, data) {
+  $(prefix + 'PhotoImg').src = data || '';
+  $(prefix + 'PhotoPreview').classList.toggle('hidden', !data);
+}
+function setPhotoField(prefix, data) {
+  delete pendingImages[prefix];
+  $(prefix + 'Photo').value = '';
+  showPhotoPreview(prefix, data || null);
+}
+function applyPhoto(rec, prefix) {
+  if (pendingImages[prefix] === undefined) return;
+  if (pendingImages[prefix]) rec.image = pendingImages[prefix]; else delete rec.image;
+  delete pendingImages[prefix];
+}
+function wirePhoto(prefix) {
+  $(prefix + 'Photo').addEventListener('change', async ev => {
+    const file = ev.target.files && ev.target.files[0];
+    if (!file) return;
+    const data = await compressImage(file);
+    if (!data) { toast(t('photoTooLarge')); ev.target.value = ''; return; }
+    if (JSON.stringify(state).length + data.length > 800000) { toast(t('bookTooLarge')); ev.target.value = ''; return; }
+    pendingImages[prefix] = data;
+    showPhotoPreview(prefix, data);
+  });
+  $(prefix + 'PhotoRemove').addEventListener('click', () => {
+    pendingImages[prefix] = null;
+    $(prefix + 'Photo').value = '';
+    showPhotoPreview(prefix, null);
+  });
+}
+wirePhoto('cust'); wirePhoto('entry'); wirePhoto('quick'); wirePhoto('inv');
 
 /* ---------- statement + reminder ---------- */
 let statementText = '';
@@ -974,7 +1068,17 @@ document.addEventListener('click', ev => {
   const calInv = ev.target.closest('[data-calendar-investment]');
   if (calInv) {
     const inv = state.investments.find(x => x.id === calInv.dataset.calendarInvestment);
-    if (inv) openCalendarReminder(inv);
+    if (inv) downloadCalendarReminder(inv);
+    return;
+  }
+  const vp = ev.target.closest('[data-view-photo]');
+  if (vp) {
+    const parts = vp.dataset.viewPhoto.split(':');
+    const rec = parts[0] === 'customer' ? state.customers.find(x => x.id === parts[1])
+      : parts[0] === 'entry' ? state.entries.find(x => x.id === parts[1])
+      : state.investments.find(x => x.id === parts[1]);
+    if (rec && rec.image) { $('photoModalImg').src = rec.image; openModal('photoModal'); }
+    return;
   }
 });
 document.querySelectorAll('.curr-btn').forEach(b => b.addEventListener('click', () => {

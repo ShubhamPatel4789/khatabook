@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 <header class="topbar">
@@ -110,6 +110,7 @@
       <button type="button" id="backBtn" class="btn btn-ghost">← <span data-i18n="back">Back</span></button>
       <div class="detail-head">
         <div>
+          <img id="detailPhoto" class="detail-photo hidden" alt="">
           <h2 id="detailName"></h2>
           <div id="detailPhone" class="detail-phone"></div>
           <div id="detailEmail" class="detail-phone"></div>
@@ -216,6 +217,10 @@
         <input type="email" id="custEmail" autocomplete="off">
       </label>
       <label class="check-row"><input type="checkbox" id="custKbUser"> <span data-i18n="kbUser">KhataBook user</span></label>
+      <label><span data-i18n="photo">Photo (optional)</span>
+        <input type="file" id="custPhoto" accept="image/*">
+      </label>
+      <div class="photo-preview hidden" id="custPhotoPreview"><img id="custPhotoImg" alt=""><button type="button" class="btn btn-ghost" id="custPhotoRemove" data-i18n="removePhoto">Remove photo</button></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
@@ -242,6 +247,10 @@
       <label><span data-i18n="note">Note (optional)</span>
         <input type="text" id="entryNote" autocomplete="off">
       </label>
+      <label><span data-i18n="photo">Photo (optional)</span>
+        <input type="file" id="entryPhoto" accept="image/*">
+      </label>
+      <div class="photo-preview hidden" id="entryPhotoPreview"><img id="entryPhotoImg" alt=""><button type="button" class="btn btn-ghost" id="entryPhotoRemove" data-i18n="removePhoto">Remove photo</button></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
         <button type="button" id="entryDeleteBtn" class="btn btn-danger hidden" data-i18n="delete">Delete</button>
@@ -272,6 +281,10 @@
       <label><span data-i18n="note">Note (optional)</span>
         <input type="text" id="quickNote" autocomplete="off">
       </label>
+      <label><span data-i18n="photo">Photo (optional)</span>
+        <input type="file" id="quickPhoto" accept="image/*">
+      </label>
+      <div class="photo-preview hidden" id="quickPhotoPreview"><img id="quickPhotoImg" alt=""><button type="button" class="btn btn-ghost" id="quickPhotoRemove" data-i18n="removePhoto">Remove photo</button></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
         <button type="submit" class="btn btn-primary" data-i18n="save">Save</button>
@@ -306,6 +319,10 @@
       <label><span data-i18n="note">Note (optional)</span>
         <input type="text" id="invNote" autocomplete="off">
       </label>
+      <label><span data-i18n="photo">Photo (optional)</span>
+        <input type="file" id="invPhoto" accept="image/*">
+      </label>
+      <div class="photo-preview hidden" id="invPhotoPreview"><img id="invPhotoImg" alt=""><button type="button" class="btn btn-ghost" id="invPhotoRemove" data-i18n="removePhoto">Remove photo</button></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-modal-close data-i18n="cancel">Cancel</button>
         <button type="button" id="investmentDeleteBtn" class="btn btn-danger hidden" data-i18n="delete">Delete</button>
@@ -340,11 +357,21 @@
   </div>
 </div>
 
+<!-- Photo viewer -->
+<div id="photoModal" class="modal-backdrop hidden">
+  <div class="modal photo-modal" role="dialog" aria-modal="true">
+    <img id="photoModalImg" alt="">
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" data-modal-close data-i18n="close">Close</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=8"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
