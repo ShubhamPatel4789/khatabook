@@ -46,6 +46,9 @@ const STR = {
     noCustomers: 'No customers yet',
     noCustomersHint: 'Tap “Add customer” to start your first khata.',
     name: 'Name', phone: 'Phone (optional)', email: 'Email (optional)', kbUser: 'KhataBook user',
+    reports: 'Reports', report: 'Report', month: 'Month', monthly: 'Monthly breakdown',
+    allTime: 'All time', totalGave: 'Total given', totalGot: 'Total received',
+    copyReport: 'Copy report', noPeriodEntries: 'No entries in this period.',
     amount: 'Amount', date: 'Date',
     note: 'Note (optional)',
     addEntry: 'Add entry', editEntry: 'Edit entry', deleteEntry: 'Delete entry',
@@ -98,6 +101,9 @@ const STR = {
     noCustomers: 'હજુ કોઈ ગ્રાહક નથી',
     noCustomersHint: 'પહેલું ખાતું શરૂ કરવા “ગ્રાહક ઉમેરો” દબાવો.',
     name: 'નામ', phone: 'ફોન (વૈકલ્પિક)', email: 'ઇમેઇલ (વૈકલ્પિક)', kbUser: 'ખાતાબુક યુઝર',
+    reports: 'રિપોર્ટ્સ', report: 'રિપોર્ટ', month: 'મહિનો', monthly: 'માસિક વિગત',
+    allTime: 'બધો સમય', totalGave: 'કુલ આપ્યા', totalGot: 'કુલ મેળવ્યા',
+    copyReport: 'રિપોર્ટ કૉપી કરો', noPeriodEntries: 'આ સમયગાળામાં કોઈ નોંધ નથી.',
     amount: 'રકમ', date: 'તારીખ',
     note: 'નોંધ (વૈકલ્પિક)',
     addEntry: 'નોંધ ઉમેરો', editEntry: 'નોંધમાં ફેરફાર કરો', deleteEntry: 'નોંધ કાઢી નાખો',
@@ -362,9 +368,11 @@ function toast(msg) {
 }
 let selectedId = null, sortKey = 'name', duesOnly = false;
 let entryTypeFilter = 'all', dateFrom = '', dateTo = '';
+let reportMonth = 'all', reportsOpen = false;
 
 function render() {
   document.querySelectorAll('.curr-btn').forEach(b => b.classList.toggle('active', b.dataset.currency === state.currency));
+  if (reportsOpen) { renderReports(); return; }
   renderDashboard();
   renderCustomers();
   if (selectedId) renderDetail(); else { $('listView').classList.remove('hidden'); $('detailView').classList.add('hidden'); }
@@ -397,9 +405,18 @@ function renderCustomers() {
 }
 function showList() {
   selectedId = null;
+  reportsOpen = false;
   $('listView').classList.remove('hidden');
   $('detailView').classList.add('hidden');
+  $('reportView').classList.add('hidden');
   renderCustomers();
+}
+function showReports() {
+  reportsOpen = true;
+  $('listView').classList.add('hidden');
+  $('detailView').classList.add('hidden');
+  $('reportView').classList.remove('hidden');
+  renderReports();
 }
 function showDetail(id) {
   selectedId = id;
@@ -438,6 +455,85 @@ function renderDetail() {
       <button type="button" class="entry-edit" data-edit-entry="${e.id}" aria-label="${t('edit')}">✎</button>
     </div>`;
   }).join('');
+}
+
+/* ---------- overall reports ---------- */
+function monthKey(iso) { return String(iso).slice(0, 7); }
+function monthLabel(key) {
+  const parts = key.split('-');
+  return MON[+parts[1] - 1] + ' ' + parts[0];
+}
+function reportMonths() {
+  return [...new Set(state.entries.map(e => monthKey(e.date)))].sort().reverse();
+}
+function periodData() {
+  const months = reportMonths();
+  const list = reportMonth === 'all' ? state.entries : state.entries.filter(e => monthKey(e.date) === reportMonth);
+  let gave = 0, got = 0;
+  list.forEach(e => { if (e.type === 'gave') gave += e.amount; else got += e.amount; });
+  const per = state.customers.map(c => {
+    const es = list.filter(e => e.customerId === c.id);
+    let g = 0, r = 0;
+    es.forEach(e => { if (e.type === 'gave') g += e.amount; else r += e.amount; });
+    return { c, gave: round2(g), got: round2(r), bal: round2(g - r), n: es.length };
+  }).filter(x => x.n > 0).sort((a, b) => Math.abs(b.bal) - Math.abs(a.bal) || a.c.name.localeCompare(b.c.name));
+  return { months, list, gave: round2(gave), got: round2(got), per };
+}
+function renderReports() {
+  const { months, list, gave, got, per } = periodData();
+  const sel = $('reportMonth');
+  sel.innerHTML = `<option value="all">${t('allTime')}</option>` + months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+  if (!months.includes(reportMonth)) reportMonth = 'all';
+  sel.value = reportMonth;
+  const period = reportMonth === 'all' ? t('allTime') : monthLabel(reportMonth);
+  $('reportGave').textContent = fmt(gave);
+  $('reportGot').textContent = fmt(got);
+  $('reportNet').textContent = fmt(round2(gave - got));
+  $('reportCount').textContent = String(list.length);
+  $('reportMeta').textContent = period + ' · ' + t('generatedOn') + ' ' + displayDate(localToday());
+  $('reportEmpty').classList.toggle('hidden', list.length > 0);
+  $('reportCustomerList').innerHTML = per.map(({ c, gave: g, got: r, bal, n }) =>
+    `<div class="entry-row"><span class="entry-main"><span class="entry-note">${esc(c.name)}</span><span class="entry-meta">${t('gave')} ${fmt(g)} · ${t('got')} ${fmt(r)} · ${n} ${t('entries')}</span></span><span class="entry-amt ${balClass(bal)}">${fmt(bal)}</span></div>`
+  ).join('');
+  $('reportMonthSection').classList.toggle('hidden', reportMonth !== 'all');
+  if (reportMonth === 'all') {
+    $('reportMonthList').innerHTML = months.map(m => {
+      const es = state.entries.filter(e => monthKey(e.date) === m);
+      let g = 0, r = 0;
+      es.forEach(e => { if (e.type === 'gave') g += e.amount; else r += e.amount; });
+      const net = round2(g - r);
+      return `<div class="entry-row"><span class="entry-main"><span class="entry-note">${monthLabel(m)}</span><span class="entry-meta">${t('gave')} ${fmt(g)} · ${t('got')} ${fmt(r)} · ${es.length} ${t('entries')}</span></span><span class="entry-amt ${balClass(net)}">${fmt(net)}</span></div>`;
+    }).join('');
+  }
+}
+function buildReportText() {
+  const { list, gave, got, per, months } = periodData();
+  const period = reportMonth === 'all' ? t('allTime') : monthLabel(reportMonth);
+  const lines = [
+    `${t('report')} — ${period}`,
+    `${t('generatedOn')} ${displayDate(localToday())}`,
+    '',
+    `${t('totalGave')}: ${fmt(gave)}`,
+    `${t('totalGot')}: ${fmt(got)}`,
+    `${t('netBalance')}: ${fmt(round2(gave - got))}`,
+    `${t('entries')}: ${list.length}`,
+    ''
+  ];
+  if (reportMonth === 'all' && months.length) {
+    lines.push(t('monthly') + ':');
+    months.forEach(m => {
+      const es = state.entries.filter(e => monthKey(e.date) === m);
+      let g = 0, r = 0;
+      es.forEach(e => { if (e.type === 'gave') g += e.amount; else r += e.amount; });
+      lines.push(`${monthLabel(m)}: ${t('gave')} ${fmt(g)} · ${t('got')} ${fmt(r)} · ${t('netBalance')} ${fmt(round2(g - r))}`);
+    });
+    lines.push('');
+  }
+  lines.push(t('customers') + ':');
+  per.forEach(({ c, gave: g, got: r, bal, n }) => {
+    lines.push(`${c.name}: ${t('gave')} ${fmt(g)} · ${t('got')} ${fmt(r)} · ${t('balance')} ${fmt(bal)} (${n} ${t('entries')})`);
+  });
+  return lines.join('\n');
 }
 
 /* ---------- modals ---------- */
@@ -575,6 +671,11 @@ $('copyReminderBtn').addEventListener('click', () => copyText($('reminderText').
 
 /* ---------- toolbar / navigation / lists ---------- */
 $('addCustomerBtn').addEventListener('click', () => openCustomerModal(null));
+$('reportsBtn').addEventListener('click', showReports);
+$('reportBackBtn').addEventListener('click', showList);
+$('reportMonth').addEventListener('change', ev => { reportMonth = ev.target.value; renderReports(); });
+$('copyReportBtn').addEventListener('click', () => copyText(buildReportText(), t('copied')));
+$('printReportBtn').addEventListener('click', () => window.print());
 $('editCustomerBtn').addEventListener('click', () => {
   const c = state.customers.find(x => x.id === selectedId);
   if (c) openCustomerModal(c);
