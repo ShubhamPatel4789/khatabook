@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 <header class="topbar">
@@ -41,6 +41,11 @@
     <button type="button" id="signOutBtn" class="btn btn-ghost hidden" data-i18n="signOut">Sign out</button>
   </div>
   <div id="syncStatus" class="sync-status"></div>
+  <nav id="tabBar" class="tabs hidden" role="tablist" aria-label="Sections">
+    <button type="button" class="tab-btn" data-tab="ledger" role="tab"><span data-i18n="ledger">Ledger</span></button>
+    <button type="button" class="tab-btn" data-tab="investments" role="tab"><span data-i18n="investments">Investments</span><span class="tab-badge hidden" id="investTabBadge"></span></button>
+    <button type="button" class="tab-btn" data-tab="reports" role="tab"><span data-i18n="reports">Reports</span></button>
+  </nav>
 </header>
 
 <main>
@@ -58,7 +63,7 @@
   <!-- App (hidden until signed in) -->
   <section id="appView" class="hidden">
     <!-- Dashboard -->
-    <section class="dashboard" aria-label="Dashboard">
+    <section id="dashboardSection" class="dashboard" aria-label="Dashboard">
       <div class="dash-card receive">
         <div class="dash-label" data-i18n="totalToReceive">Total to receive</div>
         <div class="dash-value" id="dashReceive">₹0.00</div>
@@ -92,8 +97,6 @@
         <label class="dues-label"><input type="checkbox" id="duesOnly"> <span data-i18n="duesOnly">Dues only</span></label>
         <button type="button" id="addCustomerBtn" class="btn btn-primary" data-i18n="addCustomer">Add customer</button>
         <button type="button" id="quickAddEntryBtn" class="btn btn-primary" data-i18n="addEntry">Add entry</button>
-        <button type="button" id="reportsBtn" class="btn" data-i18n="reports">Reports</button>
-        <button type="button" id="investmentsBtn" class="btn" data-i18n="investments">Investments</button>
       </div>
       <div id="customerList" class="customer-list"></div>
       <div id="customerEmpty" class="empty hidden">
@@ -146,7 +149,6 @@
 
     <!-- Overall reports view -->
     <section id="reportView" class="hidden">
-      <button type="button" id="reportBackBtn" class="btn btn-ghost">← <span data-i18n="back">Back</span></button>
       <div class="entry-filters">
         <label><span data-i18n="month">Month</span>
           <select id="reportMonth"></select>
@@ -155,10 +157,10 @@
       <div id="reportContent">
         <div class="stmt-head"><h3 data-i18n="report">Report</h3><div class="stmt-meta" id="reportMeta"></div></div>
         <section class="dashboard">
-          <div class="dash-card"><div class="dash-label" data-i18n="totalGave">Total given</div><div class="dash-value" id="reportGave">₹0.00</div></div>
-          <div class="dash-card"><div class="dash-label" data-i18n="totalGot">Total received</div><div class="dash-value" id="reportGot">₹0.00</div></div>
-          <div class="dash-card"><div class="dash-label" data-i18n="netBalance">Net balance</div><div class="dash-value" id="reportNet">₹0.00</div></div>
-          <div class="dash-card"><div class="dash-label" data-i18n="entries">Entries</div><div class="dash-value" id="reportCount">0</div></div>
+          <div class="dash-card pay"><div class="dash-label" data-i18n="totalGave">Total given</div><div class="dash-value" id="reportGave">₹0.00</div></div>
+          <div class="dash-card receive"><div class="dash-label" data-i18n="totalGot">Total received</div><div class="dash-value" id="reportGot">₹0.00</div></div>
+          <div class="dash-card net"><div class="dash-label" data-i18n="netBalance">Net balance</div><div class="dash-value" id="reportNet">₹0.00</div></div>
+          <div class="dash-card count"><div class="dash-label" data-i18n="entries">Entries</div><div class="dash-value" id="reportCount">0</div></div>
         </section>
         <div id="reportMonthSection">
           <h3 data-i18n="monthly">Monthly breakdown</h3>
@@ -176,7 +178,6 @@
 
     <!-- Investments view -->
     <section id="investView" class="hidden">
-      <button type="button" id="investBackBtn" class="btn btn-ghost">← <span data-i18n="back">Back</span></button>
       <div id="investAlert" class="maturing-alert hidden"></div>
       <div class="detail-actions">
         <button type="button" id="addInvestmentBtn" class="btn btn-primary" data-i18n="addInvestment">Add investment</button>
@@ -189,7 +190,7 @@
     </section>
 
     <!-- Backup -->
-    <section class="backup card">
+    <section id="backupSection" class="backup card">
       <h3 data-i18n="backup">Backup</h3>
       <div class="backup-row">
         <button type="button" id="exportBtn" class="btn" data-i18n="export">Export backup</button>
@@ -344,6 +345,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
