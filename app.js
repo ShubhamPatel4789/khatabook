@@ -69,6 +69,7 @@ const STR = {
     customerDeleted: 'Customer deleted',
     entryAdded: 'Entry added ✓', entryUpdated: 'Entry updated ✓', entryDeleted: 'Entry deleted',
     enterName: 'Enter a name', enterAmount: 'Enter an amount',
+    addCustomerFirst: 'Add a customer first',
     imported: 'Backup imported ✓', importFailed: 'That file could not be imported',
     exported: 'Backup downloaded ✓',
     noEntries: 'No entries yet', addFirstEntry: 'Add the first entry for this customer.',
@@ -124,6 +125,7 @@ const STR = {
     customerDeleted: 'ગ્રાહક કાઢી નાખ્યો',
     entryAdded: 'નોંધ ઉમેરાઈ ✓', entryUpdated: 'નોંધ અપડેટ થઈ ✓', entryDeleted: 'નોંધ કાઢી નાખી',
     enterName: 'નામ લખો', enterAmount: 'રકમ લખો',
+    addCustomerFirst: 'પહેલા ગ્રાહક ઉમેરો',
     imported: 'બેકઅપ ઇમ્પોર્ટ થયો ✓', importFailed: 'તે ફાઇલ ઇમ્પોર્ટ થઈ શકી નથી',
     exported: 'બેકઅપ ડાઉનલોડ થયો ✓',
     noEntries: 'હજુ કોઈ નોંધ નથી', addFirstEntry: 'આ ગ્રાહક માટે પહેલી નોંધ ઉમેરો.',
@@ -453,6 +455,7 @@ function renderDetail() {
       <span class="entry-meta">${displayDate(e.date)}</span></span>
       <span class="entry-amt">${fmt(e.amount)}</span>
       <button type="button" class="entry-edit" data-edit-entry="${e.id}" aria-label="${t('edit')}">✎</button>
+      <button type="button" class="entry-edit" data-delete-entry="${e.id}" aria-label="${t('delete')}">🗑</button>
     </div>`;
   }).join('');
 }
@@ -614,6 +617,35 @@ $('entryDeleteBtn').addEventListener('click', () => {
   save(); closeModals(); render(); toast(t('entryDeleted'));
 });
 
+/* ---------- quick-add entry from the main screen ---------- */
+let quickType = 'gave';
+function setQuickType(tp) {
+  quickType = tp;
+  document.querySelectorAll('.qtype-btn').forEach(b => b.classList.toggle('active', b.dataset.qtype === tp));
+}
+document.querySelectorAll('.qtype-btn').forEach(b => b.addEventListener('click', () => setQuickType(b.dataset.qtype)));
+function openQuickAdd() {
+  if (!state.customers.length) { toast(t('addCustomerFirst')); openCustomerModal(null); return; }
+  $('quickCustomer').innerHTML = [...state.customers].sort((a, b) => a.name.localeCompare(b.name))
+    .map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  setQuickType('gave');
+  $('quickAmount').value = '';
+  $('quickDate').value = localToday();
+  $('quickNote').value = '';
+  openModal('quickAddModal');
+  setTimeout(() => $('quickAmount').focus(), 100);
+}
+$('quickAddEntryBtn').addEventListener('click', openQuickAdd);
+$('quickAddForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const amount = round2(parseFloat($('quickAmount').value));
+  if (!amount || amount <= 0) { toast(t('enterAmount')); return; }
+  const cid = $('quickCustomer').value;
+  if (!state.customers.find(c => c.id === cid)) { toast(t('addCustomerFirst')); return; }
+  state.entries.push({ id: uid(), customerId: cid, _seq: Date.now(), type: quickType, amount, date: $('quickDate').value || localToday(), note: $('quickNote').value.trim() });
+  save(); closeModals(); render(); toast(t('entryAdded'));
+});
+
 /* ---------- statement + reminder ---------- */
 let statementText = '';
 function buildStatement(c) {
@@ -708,6 +740,15 @@ document.addEventListener('click', ev => {
   if (edit) {
     const e = state.entries.find(x => x.id === edit.dataset.editEntry);
     if (e) openEntryModal(e);
+    return;
+  }
+  const del = ev.target.closest('[data-delete-entry]');
+  if (del) {
+    const e = state.entries.find(x => x.id === del.dataset.deleteEntry);
+    if (e && confirm(t('confirmDeleteEntry'))) {
+      state.entries = state.entries.filter(x => x.id !== e.id);
+      save(); render(); toast(t('entryDeleted'));
+    }
   }
 });
 document.querySelectorAll('.curr-btn').forEach(b => b.addEventListener('click', () => {
