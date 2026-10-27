@@ -74,7 +74,7 @@ const STR = {
     enterName: 'Enter a name', enterAmount: 'Enter an amount',
     addCustomerFirst: 'Add a customer first',
     investments: 'Investments', addInvestment: 'Add investment',
-    ledger: 'Ledger',
+    ledger: 'Ledger', reminders: 'Reminders',
     calReminder: 'Calendar reminder',
     calReminderTitle: 'Reminder: {name} matures {date}',
     calFileSaved: 'Calendar file downloaded — open it and pick your calendar app',
@@ -159,7 +159,7 @@ const STR = {
     enterName: 'નામ લખો', enterAmount: 'રકમ લખો',
     addCustomerFirst: 'પહેલા ગ્રાહક ઉમેરો',
     investments: 'રોકાણો', addInvestment: 'રોકાણ ઉમેરો',
-    ledger: 'ખાતાવહી',
+    ledger: 'ખાતાવહી', reminders: 'રિમાઇન્ડર',
     calReminder: 'કેલેન્ડર રિમાઇન્ડર',
     calReminderTitle: 'યાદ: {name} {date} ના રોજ પાકે છે',
     calFileSaved: 'કેલેન્ડર ફાઇલ ડાઉનલોડ થઈ ગઈ — તેને ખોલીને તમારી કેલેન્ડર એપ પસંદ કરો',
@@ -468,12 +468,16 @@ function render() {
   const ledger = activeTab === 'ledger';
   $('dashboardSection').classList.toggle('hidden', !ledger);
   $('backupSection').classList.toggle('hidden', !ledger);
-  $('reminderSection').classList.toggle('hidden', !(ledger && !selectedId));
+  $('reminderSection').classList.toggle('hidden', activeTab !== 'reminders');
   if (activeTab === 'reports') { renderReports(); return; }
   if (activeTab === 'investments') { renderInvestments(); return; }
+  if (activeTab === 'reminders') {
+    renderReminders();
+    $('listView').classList.add('hidden'); $('detailView').classList.add('hidden');
+    return;
+  }
   renderDashboard();
   renderCustomers();
-  renderReminders();
   if (selectedId) { $('listView').classList.add('hidden'); $('detailView').classList.remove('hidden'); renderDetail(); }
   else { $('listView').classList.remove('hidden'); $('detailView').classList.add('hidden'); }
 }
@@ -514,6 +518,10 @@ function showReports() {
 }
 function showInvestments() {
   activeTab = 'investments';
+  render();
+}
+function showReminders() {
+  activeTab = 'reminders';
   render();
 }
 function showDetail(id) {
@@ -1117,6 +1125,7 @@ $('addCustomerBtn').addEventListener('click', () => openCustomerModal(null));
 document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
   if (b.dataset.tab === 'investments') showInvestments();
   else if (b.dataset.tab === 'reports') showReports();
+  else if (b.dataset.tab === 'reminders') showReminders();
   else showList();
 }));
 $('addInvestmentBtn').addEventListener('click', () => openInvestmentModal(null));
