@@ -419,6 +419,23 @@ function fmt(n) {
   const loc = state.currency === 'USD' ? 'en-CA' : 'en-IN';
   return (n < 0 ? '−' : '') + sym + Math.abs(n).toLocaleString(loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+/* Amount fields: plain digits while typing, commas + 2 decimals when done */
+function fmtNum(n) {
+  const loc = state.currency === 'USD' ? 'en-CA' : 'en-IN';
+  return Number(n).toLocaleString(loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function parseAmount(s) { return parseFloat(String(s).replace(/,/g, '')); }
+function wireAmountInput(id) {
+  const el = $(id);
+  el.addEventListener('focus', () => { el.value = el.value.replace(/,/g, ''); });
+  el.addEventListener('blur', () => {
+    const raw = el.value.trim();
+    if (raw === '') return;
+    const v = parseFloat(raw.replace(/,/g, ''));
+    if (!isNaN(v)) el.value = fmtNum(v);
+  });
+}
+['entryAmount', 'quickAmount', 'invPrincipal', 'remAmount'].forEach(wireAmountInput);
 function balanceOf(id) {
   return round2(state.entries.filter(e => e.customerId === id)
     .reduce((a, e) => a + (e.type === 'gave' ? e.amount : -e.amount), 0));
@@ -777,7 +794,7 @@ function openInvestmentModal(inv) {
   $('investmentModalTitle').dataset.i18n = inv ? 'editInvestment' : 'addInvestment';
   applyTranslations();
   $('invName').value = inv ? inv.name : '';
-  $('invPrincipal').value = inv ? inv.principal : '';
+  $('invPrincipal').value = inv ? fmtNum(inv.principal) : '';
   $('invRate').value = inv && inv.rate !== undefined && inv.rate !== null ? inv.rate : '';
   $('invStart').value = inv ? (inv.startDate || '') : localToday();
   $('invMaturity').value = inv ? inv.maturityDate : '';
@@ -792,7 +809,7 @@ $('investmentForm').addEventListener('submit', ev => {
   ev.preventDefault();
   const name = $('invName').value.trim();
   if (!name) { toast(t('enterName')); return; }
-  const principal = round2(parseFloat($('invPrincipal').value));
+  const principal = round2(parseAmount($('invPrincipal').value));
   if (!principal || principal <= 0) { toast(t('enterPrincipal')); return; }
   const rateRaw = ($('invRate').value || '').trim();
   const rateParsed = rateRaw === '' ? NaN : parseFloat(rateRaw);
@@ -872,7 +889,7 @@ function openReminderModal(r) {
   $('reminderModalTitle').dataset.i18n = r ? 'editReminder' : 'addReminder';
   applyTranslations();
   $('remTitle').value = r ? r.title : '';
-  $('remAmount').value = r && r.amount !== undefined && r.amount !== null ? r.amount : '';
+  $('remAmount').value = r && r.amount !== undefined && r.amount !== null ? fmtNum(r.amount) : '';
   $('remDue').value = r ? r.dueDate : localToday();
   $('remRepeat').value = r ? (r.repeat || 'once') : 'once';
   $('remNote').value = r ? (r.note || '') : '';
@@ -885,7 +902,7 @@ $('reminderForm').addEventListener('submit', ev => {
   const title = $('remTitle').value.trim();
   if (!title) { toast(t('enterName')); return; }
   const amtRaw = ($('remAmount').value || '').trim();
-  const amtParsed = amtRaw === '' ? NaN : parseFloat(amtRaw);
+  const amtParsed = amtRaw === '' ? NaN : parseAmount(amtRaw);
   const data = {
     title,
     amount: isNaN(amtParsed) ? null : round2(amtParsed),
@@ -962,7 +979,7 @@ function openEntryModal(entry) {
   $('entryModalTitle').dataset.i18n = entry ? 'editEntry' : 'addEntry';
   applyTranslations();
   setEntryType(entry ? entry.type : 'gave');
-  $('entryAmount').value = entry ? entry.amount : '';
+  $('entryAmount').value = entry ? fmtNum(entry.amount) : '';
   $('entryDate').value = entry ? entry.date : localToday();
   $('entryNote').value = entry ? (entry.note || '') : '';
   $('entryDeleteBtn').classList.toggle('hidden', !editingEntryId);
@@ -972,7 +989,7 @@ function openEntryModal(entry) {
 }
 $('entryForm').addEventListener('submit', ev => {
   ev.preventDefault();
-  const amount = round2(parseFloat($('entryAmount').value));
+  const amount = round2(parseAmount($('entryAmount').value));
   if (!amount || amount <= 0) { toast(t('enterAmount')); return; }
   const data = { type: entryType, amount, date: $('entryDate').value || localToday(), note: $('entryNote').value.trim() };
   if (editingEntryId) {
@@ -1015,7 +1032,7 @@ function openQuickAdd() {
 $('quickAddEntryBtn').addEventListener('click', openQuickAdd);
 $('quickAddForm').addEventListener('submit', ev => {
   ev.preventDefault();
-  const amount = round2(parseFloat($('quickAmount').value));
+  const amount = round2(parseAmount($('quickAmount').value));
   if (!amount || amount <= 0) { toast(t('enterAmount')); return; }
   const cid = $('quickCustomer').value;
   if (!state.customers.find(c => c.id === cid)) { toast(t('addCustomerFirst')); return; }
