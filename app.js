@@ -425,14 +425,52 @@ function fmtNum(n) {
   return Number(n).toLocaleString(loc, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 function parseAmount(s) { return parseFloat(String(s).replace(/,/g, '')); }
+/* Indian grouping on a digit string (no Number conversion, so huge values stay exact) */
+function groupIndianDigits(d) {
+  if (d.length <= 3) return d;
+  const last3 = d.slice(-3);
+  let head = d.slice(0, -3);
+  const parts = [];
+  while (head.length > 2) { parts.unshift(head.slice(-2)); head = head.slice(0, -2); }
+  if (head) parts.unshift(head);
+  return parts.join(',') + ',' + last3;
+}
+/* Live comma formatting while typing; caret follows the digit count */
+function liveFormatAmount(el) {
+  let raw = el.value;
+  if (raw === '') return;
+  if (!raw.includes('.') && raw.endsWith(',')) raw = raw.slice(0, -1) + '.';
+  const caret = el.selectionStart ?? raw.length;
+  const before = raw.slice(0, caret);
+  const digitsBefore = before.replace(/[^0-9]/g, '').length;
+  const dotBefore = before.includes('.');
+  const cleaned = raw.replace(/,/g, '');
+  const dotIdx = cleaned.indexOf('.');
+  let intPart, decPart = null;
+  if (dotIdx === -1) intPart = cleaned.replace(/[^0-9]/g, '');
+  else { intPart = cleaned.slice(0, dotIdx).replace(/[^0-9]/g, ''); decPart = cleaned.slice(dotIdx + 1).replace(/[^0-9]/g, '').slice(0, 2); }
+  intPart = intPart.replace(/^0+(?=\d)/, '');
+  let formatted = groupIndianDigits(intPart);
+  if (decPart !== null) formatted += '.' + decPart;
+  if (formatted === '') { el.value = ''; return; }
+  el.value = formatted;
+  let di = 0, ni = 0;
+  while (ni < formatted.length && di < digitsBefore) { if (/[0-9]/.test(formatted[ni])) di++; ni++; }
+  if (dotBefore && formatted[ni] === '.') ni++;
+  el.setSelectionRange(ni, ni);
+}
 function wireAmountInput(id) {
   const el = $(id);
-  el.addEventListener('focus', () => { el.value = el.value.replace(/,/g, ''); });
+  el.addEventListener('input', () => liveFormatAmount(el));
   el.addEventListener('blur', () => {
     const raw = el.value.trim();
     if (raw === '') return;
-    const v = parseFloat(raw.replace(/,/g, ''));
-    if (!isNaN(v)) el.value = fmtNum(v);
+    const cleaned = raw.replace(/,/g, '');
+    if (cleaned === '' || cleaned === '.') { el.value = ''; return; }
+    const split = cleaned.split('.');
+    const intPart = (split[0].replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '') || '0');
+    const dec = (split[1] || '').replace(/[^0-9]/g, '').slice(0, 2).padEnd(2, '0');
+    el.value = groupIndianDigits(intPart) + '.' + dec;
   });
 }
 ['entryAmount', 'quickAmount', 'invPrincipal', 'remAmount'].forEach(wireAmountInput);
