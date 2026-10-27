@@ -70,6 +70,12 @@ main { max-width: 640px; margin: 0 auto; padding: 12px 12px calc(88px + env(safe
 
 /* Back button — a real, visible button above the customer detail */
 #backBtn { margin-bottom: 12px; }
+
+/* Gave / got — proper radio buttons, big tap targets */
+.radio-group { display: flex; gap: 28px; margin: 4px 0 12px; flex-wrap: wrap; }
+.radio-opt { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; cursor: pointer; padding: 8px 0; }
+.radio-opt input[type="radio"] { width: 22px; height: 22px; margin: 0; flex: none; accent-color: var(--primary); }
+
 .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
 .dash-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px; box-shadow: var(--shadow); min-width: 0; }
 .dash-label { font-size: 14px; color: var(--muted); font-weight: 600; }

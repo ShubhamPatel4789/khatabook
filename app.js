@@ -938,9 +938,9 @@ $('customerForm').addEventListener('submit', ev => {
 let editingEntryId = null, entryType = 'gave';
 function setEntryType(tp) {
   entryType = tp;
-  document.querySelectorAll('.type-btn').forEach(b => b.classList.toggle('active', b.dataset.entryType === tp));
+  document.querySelectorAll('input[name="entryType"]').forEach(r => r.checked = r.value === tp);
 }
-document.querySelectorAll('.type-btn').forEach(b => b.addEventListener('click', () => setEntryType(b.dataset.entryType)));
+document.querySelectorAll('input[name="entryType"]').forEach(r => r.addEventListener('change', () => { entryType = r.value; }));
 function openEntryModal(entry) {
   editingEntryId = entry ? entry.id : null;
   $('entryModalTitle').dataset.i18n = entry ? 'editEntry' : 'addEntry';
@@ -981,9 +981,9 @@ $('entryDeleteBtn').addEventListener('click', () => {
 let quickType = 'gave';
 function setQuickType(tp) {
   quickType = tp;
-  document.querySelectorAll('.qtype-btn').forEach(b => b.classList.toggle('active', b.dataset.qtype === tp));
+  document.querySelectorAll('input[name="quickType"]').forEach(r => r.checked = r.value === tp);
 }
-document.querySelectorAll('.qtype-btn').forEach(b => b.addEventListener('click', () => setQuickType(b.dataset.qtype)));
+document.querySelectorAll('input[name="quickType"]').forEach(r => r.addEventListener('change', () => { quickType = r.value; }));
 function openQuickAdd() {
   if (!state.customers.length) { toast(t('addCustomerFirst')); openCustomerModal(null); return; }
   $('quickCustomer').innerHTML = [...state.customers].sort((a, b) => a.name.localeCompare(b.name))

@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=14">
+<link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
 <header class="topbar">
@@ -250,9 +250,9 @@
   <div class="modal" role="dialog" aria-modal="true">
     <h3 id="entryModalTitle" data-i18n="addEntry">Add entry</h3>
     <form id="entryForm">
-      <div class="seg" role="group">
-        <button type="button" class="seg-btn type-btn" data-entry-type="gave" data-i18n="gave">You gave</button>
-        <button type="button" class="seg-btn type-btn" data-entry-type="got" data-i18n="got">You got</button>
+      <div class="radio-group" role="radiogroup">
+        <label class="radio-opt"><input type="radio" name="entryType" value="gave" checked> <span data-i18n="gave">You gave</span></label>
+        <label class="radio-opt"><input type="radio" name="entryType" value="got"> <span data-i18n="got">You got</span></label>
       </div>
       <label><span data-i18n="amount">Amount</span>
         <input type="number" id="entryAmount" min="0.01" step="0.01" inputmode="decimal" required>
@@ -284,9 +284,9 @@
       <label><span data-i18n="customer">Customer</span>
         <select id="quickCustomer"></select>
       </label>
-      <div class="seg" role="group">
-        <button type="button" class="seg-btn qtype-btn" data-qtype="gave" data-i18n="gave">You gave</button>
-        <button type="button" class="seg-btn qtype-btn" data-qtype="got" data-i18n="got">You got</button>
+      <div class="radio-group" role="radiogroup">
+        <label class="radio-opt"><input type="radio" name="quickType" value="gave" checked> <span data-i18n="gave">You gave</span></label>
+        <label class="radio-opt"><input type="radio" name="quickType" value="got"> <span data-i18n="got">You got</span></label>
       </div>
       <label><span data-i18n="amount">Amount</span>
         <input type="number" id="quickAmount" min="0.01" step="0.01" inputmode="decimal" required>
@@ -421,6 +421,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
