@@ -450,6 +450,7 @@ function liveFormatAmount(el) {
   if (dotIdx === -1) intPart = cleaned.replace(/[^0-9]/g, '');
   else { intPart = cleaned.slice(0, dotIdx).replace(/[^0-9]/g, ''); decPart = cleaned.slice(dotIdx + 1).replace(/[^0-9]/g, '').slice(0, 2); }
   intPart = intPart.replace(/^0+(?=\d)/, '');
+  intPart = intPart.slice(0, 12); /* amounts cap at 12 digits so no entry can break a row */
   let formatted = groupIndianDigits(intPart);
   if (decPart !== null) formatted += '.' + decPart;
   if (formatted === '') { el.value = ''; return; }
