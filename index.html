@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=13">
+<link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
 <header class="topbar">
@@ -38,7 +38,7 @@
       <button type="button" class="seg-btn" data-theme-choice="dark" data-i18n="dark">Dark</button>
     </div>
     <span id="userChip" class="user-chip hidden"></span>
-    <button type="button" id="signOutBtn" class="btn btn-ghost hidden" data-i18n="signOut">Sign out</button>
+    <button type="button" id="signOutBtn" class="btn btn-ghost btn-sm hidden" data-i18n="signOut">Sign out</button>
   </div>
   <div id="syncStatus" class="sync-status"></div>
 </header>
@@ -115,7 +115,7 @@
 
     <!-- Per-customer ledger view -->
     <section id="detailView" class="hidden">
-      <button type="button" id="backBtn" class="btn btn-ghost">← <span data-i18n="back">Back</span></button>
+      <button type="button" id="backBtn" class="btn">← <span data-i18n="back">Back</span></button>
       <div class="detail-head">
         <div>
           <img id="detailPhoto" class="detail-photo hidden" alt="">
@@ -421,6 +421,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>
