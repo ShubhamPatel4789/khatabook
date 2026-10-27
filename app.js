@@ -77,7 +77,7 @@ const STR = {
     ledger: 'Ledger', reminders: 'Reminders',
     calReminder: 'Calendar reminder',
     calReminderTitle: 'Reminder: {name} matures {date}',
-    calFileSaved: 'Calendar file downloaded — open it and pick your calendar app',
+    calFileSaved: 'Calendar file downloaded — open it and pick your calendar app', openingCalendar: 'Opening your calendar…',
     photo: 'Photo (optional)', removePhoto: 'Remove photo',
     photoTooLarge: 'Photo too large — try a smaller photo',
     bookTooLarge: 'Too many photos — remove an old photo first',
@@ -162,7 +162,7 @@ const STR = {
     ledger: 'ખાતાવહી', reminders: 'રિમાઇન્ડર',
     calReminder: 'કેલેન્ડર રિમાઇન્ડર',
     calReminderTitle: 'યાદ: {name} {date} ના રોજ પાકે છે',
-    calFileSaved: 'કેલેન્ડર ફાઇલ ડાઉનલોડ થઈ ગઈ — તેને ખોલીને તમારી કેલેન્ડર એપ પસંદ કરો',
+    calFileSaved: 'કેલેન્ડર ફાઇલ ડાઉનલોડ થઈ ગઈ — તેને ખોલીને તમારી કેલેન્ડર એપ પસંદ કરો', openingCalendar: 'તમારું કેલેન્ડર ખુલી રહ્યું છે…',
     photo: 'ફોટો (વૈકલ્પિક)', removePhoto: 'ફોટો દૂર કરો',
     photoTooLarge: 'ફોટો ખૂબ મોટો છે — નાનો ફોટો પસંદ કરો',
     bookTooLarge: 'ઘણા બધા ફોટા છે — પહેલા જૂનો ફોટો દૂર કરો',
@@ -719,40 +719,57 @@ function addDaysIso(iso, n) {
 }
 function icsEscape(s) { return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n'); }
 function icsFold(line) { let out = ''; while (line.length > 75) { out += line.slice(0, 75) + '\r\n '; line = line.slice(75); } return out + line; }
-function buildIcs(inv, day) {
-  const title = t('calReminderTitle').replace('{name}', inv.name).replace('{date}', displayDate(inv.maturityDate));
-  const details = t('principal') + ': ' + fmt(inv.principal) + ' · ' + t('maturityDate') + ': ' + displayDate(inv.maturityDate);
+function icsText(title, details, day) {
   const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Khatabook//EN', 'BEGIN:VEVENT',
-    'UID:' + inv.id + '@khatabook', 'DTSTAMP:' + stamp,
+    'UID:' + title.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-' + calDate(day) + '@khatabook', 'DTSTAMP:' + stamp,
     'DTSTART;VALUE=DATE:' + calDate(day), 'DTEND;VALUE=DATE:' + calDate(addDaysIso(day, 1)),
     'SUMMARY:' + icsEscape(title), 'DESCRIPTION:' + icsEscape(details),
     'END:VEVENT', 'END:VCALENDAR'];
   return lines.map(icsFold).join('\r\n');
 }
-function downloadIcsFile(filename, title, details, day) {
-  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Khatabook//EN', 'BEGIN:VEVENT',
-    'UID:' + filename + '@khatabook', 'DTSTAMP:' + stamp,
-    'DTSTART;VALUE=DATE:' + calDate(day), 'DTEND;VALUE=DATE:' + calDate(addDaysIso(day, 1)),
-    'SUMMARY:' + icsEscape(title), 'DESCRIPTION:' + icsEscape(details),
-    'END:VEVENT', 'END:VCALENDAR'];
-  const blob = new Blob([lines.map(icsFold).join('\r\n')], { type: 'text/calendar' });
+function isIOS() { return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function isAndroid() { return /Android/.test(navigator.userAgent); }
+function openCalendarEvent(title, details, day) {
+  const start = calDate(day), end = calDate(addDaysIso(day, 1));
+  if (isAndroid()) {
+    // Opens the default calendar app (Samsung Calendar, Google Calendar, …)
+    // on a prefilled new-event screen. Falls back to Google Calendar web
+    // if no calendar app handles the intent.
+    const begin = Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10));
+    const fallback = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + start + '/' + end + '&details=' + encodeURIComponent(details);
+    const intent = 'intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.item/event'
+      + ';S.title=' + encodeURIComponent(title)
+      + ';S.description=' + encodeURIComponent(details)
+      + ';l.beginTime=' + begin + ';l.endTime=' + (begin + 86400000) + ';B.allDay=true'
+      + ';S.browser_fallback_url=' + encodeURIComponent(fallback) + ';end';
+    toast(t('openingCalendar'));
+    location.href = intent;
+    return;
+  }
+  if (isIOS()) {
+    // iOS has no calendar intent: a data: .ics opens Apple's own
+    // add-event sheet in Calendar — no file lands in Downloads.
+    toast(t('openingCalendar'));
+    location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(icsText(title, details, day));
+    return;
+  }
+  const blob = new Blob([icsText(title, details, day)], { type: 'text/calendar' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = filename;
+  a.download = title.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-reminder.ics';
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(t('calFileSaved'));
 }
-function downloadCalendarReminder(inv) {
+function openInvestmentCalendar(inv) {
   if (!inv.maturityDate) return;
   const remind = inv.remindDays === undefined || inv.remindDays === null ? 7 : inv.remindDays;
   let day = addDaysIso(inv.maturityDate, -remind);
   if (day < localToday()) day = localToday();
   const title = t('calReminderTitle').replace('{name}', inv.name).replace('{date}', displayDate(inv.maturityDate));
   const details = t('principal') + ': ' + fmt(inv.principal) + ' · ' + t('maturityDate') + ': ' + displayDate(inv.maturityDate);
-  downloadIcsFile(inv.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-reminder.ics', title, details, day);
-  toast(t('calFileSaved'));
+  openCalendarEvent(title, details, day);
 }
 let editingInvestmentId = null;
 function openInvestmentModal(inv) {
@@ -843,12 +860,11 @@ function renderReminders() {
     </div>`;
   }).join('');
 }
-function downloadReminderCalendar(r) {
+function openReminderCalendar(r) {
   const due = effectiveDue(r);
   if (!due) return;
   const details = (r.amount ? t('amount') + ': ' + fmt(r.amount) + ' · ' : '') + t('date') + ': ' + displayDate(due) + (r.note ? ' · ' + r.note : '');
-  downloadIcsFile(r.title.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-reminder.ics', r.title, details, due);
-  toast(t('calFileSaved'));
+  openCalendarEvent(r.title, details, due);
 }
 let editingReminderId = null;
 function openReminderModal(r) {
@@ -1194,7 +1210,7 @@ document.addEventListener('click', ev => {
   const calInv = ev.target.closest('[data-calendar-investment]');
   if (calInv) {
     const inv = state.investments.find(x => x.id === calInv.dataset.calendarInvestment);
-    if (inv) downloadCalendarReminder(inv);
+    if (inv) openInvestmentCalendar(inv);
     return;
   }
   const vp = ev.target.closest('[data-view-photo]');
@@ -1224,7 +1240,7 @@ document.addEventListener('click', ev => {
   const calRem = ev.target.closest('[data-calendar-reminder]');
   if (calRem) {
     const r = state.reminders.find(x => x.id === calRem.dataset.calendarReminder);
-    if (r) downloadReminderCalendar(r);
+    if (r) openReminderCalendar(r);
     return;
   }
 });
