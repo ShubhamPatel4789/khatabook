@@ -13,7 +13,7 @@
     document.documentElement.dataset.theme = _dark ? 'dark' : 'light';
   } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
 <header class="topbar">
@@ -215,6 +215,7 @@
   <button type="button" class="tab-btn" data-tab="ledger" role="tab"><span data-i18n="ledger">Ledger</span></button>
   <button type="button" class="tab-btn" data-tab="investments" role="tab"><span data-i18n="investments">Investments</span><span class="tab-badge hidden" id="investTabBadge"></span></button>
   <button type="button" class="tab-btn" data-tab="reports" role="tab"><span data-i18n="reports">Reports</span></button>
+  <button type="button" class="tab-btn" data-tab="reminders" role="tab"><span data-i18n="reminders">Reminders</span></button>
 </nav>
 
 <!-- Customer modal -->
@@ -420,6 +421,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
