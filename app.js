@@ -81,6 +81,13 @@ const STR = {
     photo: 'Photo (optional)', removePhoto: 'Remove photo',
     photoTooLarge: 'Photo too large — try a smaller photo',
     bookTooLarge: 'Too many photos — remove an old photo first',
+    paymentReminders: 'Payment reminders', addReminder: 'Add reminder', editReminder: 'Edit reminder',
+    repeat: 'Repeat', repeatOnce: 'Once', repeatMonthly: 'Monthly', repeatYearly: 'Yearly',
+    reminderAdded: 'Reminder added', reminderUpdated: 'Reminder updated', reminderDeleted: 'Reminder deleted',
+    confirmDeleteReminder: 'Delete this reminder?',
+    noReminders: 'No payment reminders yet',
+    addFirstReminder: 'Add insurance premiums, bills and other due payments here.',
+    overdue: 'Overdue', dueToday: 'Due today',
     dayLeft: 'day left',
     editInvestment: 'Edit investment', deleteInvestment: 'Delete investment',
     principal: 'Principal amount', annualRate: 'Annual interest rate (%)',
@@ -159,6 +166,13 @@ const STR = {
     photo: 'ફોટો (વૈકલ્પિક)', removePhoto: 'ફોટો દૂર કરો',
     photoTooLarge: 'ફોટો ખૂબ મોટો છે — નાનો ફોટો પસંદ કરો',
     bookTooLarge: 'ઘણા બધા ફોટા છે — પહેલા જૂનો ફોટો દૂર કરો',
+    paymentReminders: 'ચુકવણી રિમાઇન્ડર', addReminder: 'રિમાઇન્ડર ઉમેરો', editReminder: 'રિમાઇન્ડર સુધારો',
+    repeat: 'પુનરાવર્તન', repeatOnce: 'એક વાર', repeatMonthly: 'દર મહિને', repeatYearly: 'દર વર્ષે',
+    reminderAdded: 'રિમાઇન્ડર ઉમેરાયું', reminderUpdated: 'રિમાઇન્ડર સુધારાયું', reminderDeleted: 'રિમાઇન્ડર દૂર કરાયું',
+    confirmDeleteReminder: 'આ રિમાઇન્ડર દૂર કરવું છે?',
+    noReminders: 'હજુ કોઈ ચુકવણી રિમાઇન્ડર નથી',
+    addFirstReminder: 'અહીં વીમા પ્રીમિયમ, બિલ અને અન્ય ચુકવણીઓ ઉમેરો.',
+    overdue: 'મુદત વીતી ગઈ', dueToday: 'આજે ચુકવવાનું',
     dayLeft: 'દિવસ બાકી',
     editInvestment: 'રોકાણમાં ફેરફાર કરો', deleteInvestment: 'રોકાણ કાઢી નાખો',
     principal: 'મૂળ રકમ', annualRate: 'વાર્ષિક વ્યાજ દર (%)',
@@ -225,14 +239,14 @@ if (themeMQ.addEventListener) themeMQ.addEventListener('change', applyTheme);
 const LS_KEY = 'khatabook.v1';
 let currentUser = null; // set by auth; the cache key is per user so books never mix on one device
 const cacheKey = () => currentUser ? LS_KEY + '.' + currentUser.uid : LS_KEY;
-let state = { currency: 'INR', customers: [], entries: [], investments: [] };
+let state = { currency: 'INR', customers: [], entries: [], investments: [], reminders: [] };
 function loadLocalCache() {
   try {
     const raw = localStorage.getItem(cacheKey());
     if (raw) {
       const p = JSON.parse(raw);
       if (p && Array.isArray(p.customers) && Array.isArray(p.entries)) {
-        state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries, investments: Array.isArray(p.investments) ? p.investments : [] };
+        state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries, investments: Array.isArray(p.investments) ? p.investments : [], reminders: Array.isArray(p.reminders) ? p.reminders : [] };
       }
     }
   } catch (e) {}
@@ -274,7 +288,7 @@ function adoptRemote(remote) {
   try {
     const p = JSON.parse(remote);
     if (!validKb(p)) return;
-    state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries, investments: Array.isArray(p.investments) ? p.investments : [] };
+    state = { currency: (p.currency === 'USD' ? 'USD' : 'INR'), customers: p.customers, entries: p.entries, investments: Array.isArray(p.investments) ? p.investments : [], reminders: Array.isArray(p.reminders) ? p.reminders : [] };
     try { localStorage.setItem(cacheKey(), remote); } catch (e) {}
     render();
   } catch (e) { console.warn('Could not apply cloud data', e); }
@@ -454,10 +468,12 @@ function render() {
   const ledger = activeTab === 'ledger';
   $('dashboardSection').classList.toggle('hidden', !ledger);
   $('backupSection').classList.toggle('hidden', !ledger);
+  $('reminderSection').classList.toggle('hidden', !(ledger && !selectedId));
   if (activeTab === 'reports') { renderReports(); return; }
   if (activeTab === 'investments') { renderInvestments(); return; }
   renderDashboard();
   renderCustomers();
+  renderReminders();
   if (selectedId) { $('listView').classList.add('hidden'); $('detailView').classList.remove('hidden'); renderDetail(); }
   else { $('listView').classList.remove('hidden'); $('detailView').classList.add('hidden'); }
 }
@@ -706,17 +722,28 @@ function buildIcs(inv, day) {
     'END:VEVENT', 'END:VCALENDAR'];
   return lines.map(icsFold).join('\r\n');
 }
+function downloadIcsFile(filename, title, details, day) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Khatabook//EN', 'BEGIN:VEVENT',
+    'UID:' + filename + '@khatabook', 'DTSTAMP:' + stamp,
+    'DTSTART;VALUE=DATE:' + calDate(day), 'DTEND;VALUE=DATE:' + calDate(addDaysIso(day, 1)),
+    'SUMMARY:' + icsEscape(title), 'DESCRIPTION:' + icsEscape(details),
+    'END:VEVENT', 'END:VCALENDAR'];
+  const blob = new Blob([lines.map(icsFold).join('\r\n')], { type: 'text/calendar' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 function downloadCalendarReminder(inv) {
   if (!inv.maturityDate) return;
   const remind = inv.remindDays === undefined || inv.remindDays === null ? 7 : inv.remindDays;
   let day = addDaysIso(inv.maturityDate, -remind);
   if (day < localToday()) day = localToday();
-  const blob = new Blob([buildIcs(inv, day)], { type: 'text/calendar' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = inv.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-reminder.ics';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  const title = t('calReminderTitle').replace('{name}', inv.name).replace('{date}', displayDate(inv.maturityDate));
+  const details = t('principal') + ': ' + fmt(inv.principal) + ' · ' + t('maturityDate') + ': ' + displayDate(inv.maturityDate);
+  downloadIcsFile(inv.name.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-reminder.ics', title, details, day);
   toast(t('calFileSaved'));
 }
 let editingInvestmentId = null;
@@ -769,6 +796,96 @@ $('investmentDeleteBtn').addEventListener('click', () => {
   state.investments = state.investments.filter(x => x.id !== editingInvestmentId);
   save(); closeModals(); render(); toast(t('investmentDeleted'));
 });
+
+/* ---------- payment reminders ---------- */
+function fmtIsoParts(y, m, d) { return y + '-' + String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0'); }
+function addMonthsIso(iso, n) {
+  let [y, m, d] = iso.split('-').map(Number);
+  m += n; y += Math.floor((m - 1) / 12); m = ((m - 1) % 12) + 1;
+  const last = new Date(y, m, 0).getDate();
+  return fmtIsoParts(y, m, Math.min(d, last));
+}
+function addYearsIso(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number);
+  const last = new Date(y + n, m, 0).getDate();
+  return fmtIsoParts(y + n, m, Math.min(d, last));
+}
+function effectiveDue(r) {
+  if (!r.dueDate) return '';
+  if (!r.repeat || r.repeat === 'once') return r.dueDate;
+  let d = r.dueDate; const today = localToday(); let guard = 0;
+  while (d < today && guard++ < 1200) d = r.repeat === 'monthly' ? addMonthsIso(d, 1) : addYearsIso(d, 1);
+  return d;
+}
+function repeatLabel(rep) { return rep === 'monthly' ? t('repeatMonthly') : rep === 'yearly' ? t('repeatYearly') : t('repeatOnce'); }
+function renderReminders() {
+  const list = [...(state.reminders || [])].sort((a, b) => effectiveDue(a).localeCompare(effectiveDue(b)) || a.title.localeCompare(b.title));
+  $('reminderEmpty').classList.toggle('hidden', list.length > 0);
+  $('reminderList').innerHTML = list.map(r => {
+    const due = effectiveDue(r);
+    const left = due ? daysBetween(localToday(), due) : null;
+    const leftText = left === null ? '' : left < 0 ? t('overdue') : left === 0 ? t('dueToday') : daysLeftText(left);
+    const soon = left !== null && left >= 0 && left <= 7;
+    return `<div class="entry-row${soon ? ' due-soon' : ''}">
+      <span class="entry-main"><span class="entry-note">${esc(r.title)}</span>
+      <span class="entry-meta">${r.amount ? fmt(r.amount) + ' · ' : ''}${displayDate(due)} · ${leftText} · ${repeatLabel(r.repeat)}${r.note ? ' · ' + esc(r.note) : ''}</span></span>
+      <button type="button" class="entry-edit" data-edit-reminder="${r.id}" aria-label="${t('edit')}">✎</button>
+      <button type="button" class="entry-edit" data-delete-reminder="${r.id}" aria-label="${t('delete')}">🗑</button>
+      <button type="button" class="entry-edit" data-calendar-reminder="${r.id}" aria-label="${t('calReminder')}" title="${t('calReminder')}">📅</button>
+    </div>`;
+  }).join('');
+}
+function downloadReminderCalendar(r) {
+  const due = effectiveDue(r);
+  if (!due) return;
+  const details = (r.amount ? t('amount') + ': ' + fmt(r.amount) + ' · ' : '') + t('date') + ': ' + displayDate(due) + (r.note ? ' · ' + r.note : '');
+  downloadIcsFile(r.title.replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '') + '-reminder.ics', r.title, details, due);
+  toast(t('calFileSaved'));
+}
+let editingReminderId = null;
+function openReminderModal(r) {
+  editingReminderId = r ? r.id : null;
+  $('reminderModalTitle').dataset.i18n = r ? 'editReminder' : 'addReminder';
+  applyTranslations();
+  $('remTitle').value = r ? r.title : '';
+  $('remAmount').value = r && r.amount !== undefined && r.amount !== null ? r.amount : '';
+  $('remDue').value = r ? r.dueDate : localToday();
+  $('remRepeat').value = r ? (r.repeat || 'once') : 'once';
+  $('remNote').value = r ? (r.note || '') : '';
+  $('reminderDeleteBtn').classList.toggle('hidden', !editingReminderId);
+  openModal('reminderModal');
+  setTimeout(() => $('remTitle').focus(), 100);
+}
+$('reminderForm').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const title = $('remTitle').value.trim();
+  if (!title) { toast(t('enterName')); return; }
+  const amtRaw = ($('remAmount').value || '').trim();
+  const amtParsed = amtRaw === '' ? NaN : parseFloat(amtRaw);
+  const data = {
+    title,
+    amount: isNaN(amtParsed) ? null : round2(amtParsed),
+    dueDate: $('remDue').value || localToday(),
+    repeat: $('remRepeat').value || 'once',
+    note: $('remNote').value.trim()
+  };
+  if (editingReminderId) {
+    const r = state.reminders.find(x => x.id === editingReminderId);
+    if (r) Object.assign(r, data);
+    toast(t('reminderUpdated'));
+  } else {
+    state.reminders.push({ id: uid(), ...data });
+    toast(t('reminderAdded'));
+  }
+  save(); closeModals(); render();
+});
+$('reminderDeleteBtn').addEventListener('click', () => {
+  if (!editingReminderId) return;
+  if (!confirm(t('confirmDeleteReminder'))) return;
+  state.reminders = state.reminders.filter(x => x.id !== editingReminderId);
+  save(); closeModals(); render(); toast(t('reminderDeleted'));
+});
+$('addReminderBtn').addEventListener('click', () => openReminderModal(null));
 
 /* ---------- modals ---------- */
 function openModal(id) { $(id).classList.remove('hidden'); }
@@ -1080,6 +1197,27 @@ document.addEventListener('click', ev => {
     if (rec && rec.image) { $('photoModalImg').src = rec.image; openModal('photoModal'); }
     return;
   }
+  const editRem = ev.target.closest('[data-edit-reminder]');
+  if (editRem) {
+    const r = state.reminders.find(x => x.id === editRem.dataset.editReminder);
+    if (r) openReminderModal(r);
+    return;
+  }
+  const delRem = ev.target.closest('[data-delete-reminder]');
+  if (delRem) {
+    const r = state.reminders.find(x => x.id === delRem.dataset.deleteReminder);
+    if (r && confirm(t('confirmDeleteReminder'))) {
+      state.reminders = state.reminders.filter(x => x.id !== r.id);
+      save(); render(); toast(t('reminderDeleted'));
+    }
+    return;
+  }
+  const calRem = ev.target.closest('[data-calendar-reminder]');
+  if (calRem) {
+    const r = state.reminders.find(x => x.id === calRem.dataset.calendarReminder);
+    if (r) downloadReminderCalendar(r);
+    return;
+  }
 });
 document.querySelectorAll('.curr-btn').forEach(b => b.addEventListener('click', () => {
   state.currency = b.dataset.currency;
@@ -1110,7 +1248,8 @@ $('importFile').addEventListener('change', ev => {
         currency: (data.currency === 'USD' ? 'USD' : 'INR'),
         customers: data.customers,
         entries: data.entries.filter(e => ids.has(e.customerId)),
-        investments: Array.isArray(data.investments) ? data.investments : []
+        investments: Array.isArray(data.investments) ? data.investments : [],
+        reminders: Array.isArray(data.reminders) ? data.reminders : []
       };
       selectedId = null;
       save(); showList(); render(); toast(t('imported'));

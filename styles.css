@@ -131,6 +131,12 @@ main { max-width: 640px; margin: 0 auto; padding: 12px; width: 100%; }
 .entry-thumb img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; display: block; }
 .photo-modal img { width: 100%; border-radius: 12px; display: block; }
 
+/* Payment reminders */
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.section-head h3 { margin: 0; }
+#reminderSection { margin-bottom: 12px; }
+.due-soon { border-left: 6px solid #d97706; }
+
 /* Maturing-investment alert */
 .maturing-alert { background: var(--card); border: 1px solid #d97706; border-left: 6px solid #d97706; border-radius: 14px; padding: 14px 16px; margin-bottom: 12px; box-shadow: var(--shadow); cursor: pointer; }
 
